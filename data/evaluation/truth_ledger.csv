@@ -1,0 +1,16 @@
+truth_group_id,scenario,payment_record,settlement_record,bank_record,refund_record,expected_system_result,reason
+TG-001,Exact three-way match,PAY-001,SET-001,BANK-001,NONE,AUTO_MATCH,"Payment ID, settlement ID, and net amount all match"
+TG-002,Exact three-way match,PAY-002,SET-002,BANK-002,NONE,AUTO_MATCH,"Payment ID, settlement ID, and net amount all match"
+TG-003,Valid partial refund,PAY-003,SET-003,BANK-003,REF-003,AUTO_MATCH,Refund explains reduced net amount
+TG-004,Exact three-way match,PAY-004,SET-004,BANK-004,NONE,AUTO_MATCH,"Payment ID, settlement ID, and net amount all match"
+TG-005,Settlement delay,PAY-005,SET-005,BANK-005,NONE,EXCEPTION: SETTLEMENT_DELAY,Settlement is 9 days after payment; policy maximum is 7 days
+TG-006,Ambiguous bank record,PAY-006,SET-006,BANK-006,NONE,EXCEPTION: MISSING_REFERENCE,Bank narration lacks settlement ID (SET-006)
+TG-007,Unexplained amount variance,PAY-007,SET-007,BANK-007,NONE,EXCEPTION: AMOUNT_VARIANCE,Expected ₹1952.80 but bank credit is ₹1900.00
+TG-008,Missing bank settlement reference,PAY-008,SET-008,BANK-008,NONE,EXCEPTION: MISSING_REFERENCE,Bank narration does not contain SET-008
+TG-009,Exact three-way match,PAY-009,SET-009,BANK-009,NONE,AUTO_MATCH,"Payment ID, settlement ID, and net amount all match"
+TG-010,Exact three-way match,PAY-010,SET-010,BANK-010,NONE,AUTO_MATCH,"Payment ID, settlement ID, and net amount all match"
+TG-011,Valid partial refund,PAY-011,SET-011,BANK-011,REF-011,AUTO_MATCH,Refund explains reduced net amount
+TG-012,Duplicate payment delivery,PAY-012 twice,SET-012,BANK-012,NONE,AUTO_MATCH + DUPLICATE_AUDIT,One payment is reconciled; duplicate event is ignored and audited
+TG-013,Missing payment link,PAY-013,SET-013,BANK-013,NONE,EXCEPTION: MISSING_PAYMENT_ID,SET-013 has a blank payment_id
+TG-014,Status conflict,PAY-014,SET-014,BANK-014,NONE,EXCEPTION: STATUS_CONFLICT,Payment status is failed but settlement and bank credit exist
+TG-015,Invalid bank-credit data,PAY-015,SET-015,BANK-015,NONE,EXCEPTION: INVALID_ROW,BANK-015 credit_amount is NOT_A_NUMBER

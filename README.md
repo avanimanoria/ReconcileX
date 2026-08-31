@@ -28,6 +28,7 @@ ReconcileX is a modular, deterministic, offline Python financial reconciliation 
 - **Strict 1-to-1 Matching**: One payment $\longleftrightarrow$ One settlement $\longleftrightarrow$ One bank credit.
 - **Decoupled Evaluation**: Ground truth evaluation ledger is strictly separated from engine matching logic.
 - **Reproducible Synthetic Benchmark**: Byte-reproducible benchmark generation and evaluation suite to test engines against scaled distributions without label leakage.
+- **Adversarial Precedence Hardening**: Explicit multi-fault test matrix proving safe refusal and deterministic precedence.
 - **Offline & Self-Contained**: No external APIs, databases, or cloud dependencies.
 
 ---
@@ -56,6 +57,7 @@ ReconcileX/
 │           ├── test_loader.py            # Ingestion, parsing, and quarantine tests
 │           ├── test_baseline.py          # Baseline rules and exception tests
 │           ├── test_improved_matcher.py  # V1.1 financial validation & timing tests
+│           ├── test_adversarial_precedence.py # 12 multi-fault combination tests
 │           ├── test_benchmark_generator.py # Generator reproducibility tests
 │           └── test_benchmark_runner.py  # Runner & metrics tests
 ├── data/
@@ -65,7 +67,8 @@ ReconcileX/
 ├── docs/
 │   ├── decision-spec.md             # High-level decision specification
 │   ├── improved-engine-rules.md     # V1.1 Rule precedence & financial equations
-│   └── benchmark-methodology.md     # Benchmark design and metric definitions
+│   ├── benchmark-methodology.md     # Benchmark design and metric definitions
+│   └── adversarial-test-matrix.md   # 12-case multi-fault precedence matrix
 ├── pytest.ini
 └── README.md
 ```
@@ -76,8 +79,14 @@ ReconcileX/
 
 ### 1. Run Automated Unit Tests
 
+Run all unit, benchmark, and adversarial precedence tests:
 ```bash
 pytest -v backend/app/tests
+```
+
+Run only the adversarial precedence test suite:
+```bash
+pytest -v backend/app/tests/test_adversarial_precedence.py
 ```
 
 ### 2. Run Reconciliation CLI
@@ -96,6 +105,17 @@ Run baseline engine only:
 ```bash
 python -m backend.app.main --engine baseline
 ```
+
+---
+
+## Adversarial Safety Testing
+
+ReconcileX includes a 12-case adversarial test suite ([`docs/adversarial-test-matrix.md`](file:///c:/Users/avani%20manoria/OneDrive/Desktop/ReconcileX/docs/adversarial-test-matrix.md)) that subjects the engine to simultaneous multi-fault anomalies (e.g. data corruption combined with status conflicts, or missing payment IDs combined with amount variances).
+
+Key safety guarantees:
+- **Strict Precedence**: When multiple faults exist, the engine halts at the highest-priority root cause (`INVALID_ROW` $\rightarrow$ `MISSING_PAYMENT_ID` $\rightarrow$ `UNMATCHED` $\rightarrow$ `STATUS_CONFLICT` $\rightarrow$ `MISSING_REFERENCE` $\rightarrow$ `AMBIGUOUS_CANDIDATES` $\rightarrow$ `SETTLEMENT_DELAY` $\rightarrow$ `AMOUNT_VARIANCE`).
+- **Zero Accidental Auto-Matches**: No adversarial combination scenario may produce an accidental `AUTO_MATCH`.
+- **Deterministic Refusal**: Decisions are 100% deterministic and rule-based—no AI or heuristic guessing.
 
 ---
 

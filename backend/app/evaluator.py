@@ -22,6 +22,7 @@ KNOWN_BASELINE_LIMITATIONS = [
 def evaluate_results(
     batch_result: ReconciliationBatchResult,
     truth_records: List[TruthRecord],
+    engine_name: str = "baseline",
 ) -> EvaluationReport:
     """Compare engine batch results and audit logs against ground-truth ledger."""
     results_by_settlement = {
@@ -29,12 +30,6 @@ def evaluate_results(
     }
     results_by_payment = {
         r.payment_id: r for r in batch_result.results if r.payment_id
-    }
-
-    duplicate_audit_events = {
-        entry.details.get("payment_id") or entry.entity_id: entry
-        for entry in batch_result.audit_logs
-        if entry.event_type == "DUPLICATE_EVENT"
     }
 
     comparisons: List[EvaluationComparison] = []
@@ -63,10 +58,13 @@ def evaluate_results(
 
         notes = ""
         if not is_match:
-            if truth.truth_group_id == "TG-005":
-                notes = "Known baseline limitation: settlement delay not validated in baseline."
-            elif truth.truth_group_id == "TG-007":
-                notes = "Known baseline limitation: amount variance not validated in baseline."
+            if engine_name == "baseline":
+                if truth.truth_group_id == "TG-005":
+                    notes = "Known baseline limitation: settlement delay not validated in baseline."
+                elif truth.truth_group_id == "TG-007":
+                    notes = "Known baseline limitation: amount variance not validated in baseline."
+                else:
+                    notes = f"Engine produced '{actual_display}' vs expected '{truth.expected_system_result}'."
             else:
                 notes = f"Engine produced '{actual_display}' vs expected '{truth.expected_system_result}'."
 
@@ -91,11 +89,13 @@ def evaluate_results(
     mismatches = total - exact_matches
     accuracy = (exact_matches / total * 100.0) if total > 0 else 0.0
 
+    limitations = KNOWN_BASELINE_LIMITATIONS if engine_name == "baseline" else []
+
     return EvaluationReport(
         total_scenarios=total,
         exact_matches=exact_matches,
         mismatches=mismatches,
         accuracy=accuracy,
         comparisons=comparisons,
-        known_baseline_limitations=KNOWN_BASELINE_LIMITATIONS,
+        known_baseline_limitations=limitations,
     )

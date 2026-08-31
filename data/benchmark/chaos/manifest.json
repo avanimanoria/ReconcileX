@@ -1,0 +1,31 @@
+{
+  "split": "chaos",
+  "seed": 20260903,
+  "scenario_count": 100,
+  "generator_version": "1.0.0",
+  "scenario_distribution": {
+    "EXACT_MATCH": 15,
+    "VALID_REFUND": 10,
+    "SETTLEMENT_DELAY": 10,
+    "AMOUNT_VARIANCE": 15,
+    "MISSING_REFERENCE": 15,
+    "MISSING_PAYMENT_ID": 10,
+    "STATUS_CONFLICT": 10,
+    "INVALID_BANK_AMOUNT": 10,
+    "DUPLICATE_PAYMENT_EVENT": 5
+  },
+  "generated_files": [
+    "input/payments.csv",
+    "input/settlements.csv",
+    "input/bank_credits.csv",
+    "input/refunds.csv",
+    "evaluation/truth_ledger.csv"
+  ],
+  "checksums": {
+    "payments.csv": "10cade437e6e463b485a4b86ccc1b0639ec0fb8b06b3bff5960c024134825cc3",
+    "settlements.csv": "ee56be8ec039eb44779f56fca6fc4c320520779b1aa76a18f73b2471e64e0baf",
+    "bank_credits.csv": "14b6628ae577fae744d84e3aa2258ae0e62c7210776d55a1eb964dfde68889f8",
+    "refunds.csv": "8ecb5d5f2d5ac342e318b0481efc9d5033b0ec4da5fc8399d3aa37aa86c3891d",
+    "truth_ledger.csv": "f33a169630a5fe7ad25e09dcc7f182699a3181e32fb3708d285a94fb16631a01"
+  }
+}

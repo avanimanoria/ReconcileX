@@ -21,25 +21,13 @@ ReconcileX is a modular, deterministic, offline Python financial reconciliation 
 
 ---
 
-## Expected Results Comparison
-
-| Metric | Baseline Engine (V1.0) | Improved Engine (V1.1) |
-|---|---|---|
-| **Total Scenarios** | 15 | 15 |
-| **Exact Matches with Truth** | 13 | 15 |
-| **Mismatches** | 2 (`TG-005`, `TG-007`) | 0 |
-| **Accuracy** | 86.7% | 100.0% |
-| **Auto-Matches** | 10 | 8 |
-| **Exceptions** | 5 | 7 |
-
----
-
 ## Design & Architecture Principles
 
 - **No AI in Financial Decisions**: The engine is 100% deterministic and rule-based. AI, ML, fuzzy matching, and heuristics are intentionally omitted by design to ensure absolute auditability and financial correctness.
 - **Strict Decimal Math**: All calculations use Python's `decimal.Decimal` with a strict `₹0.01` (1 paisa) tolerance. Floating-point numbers are forbidden.
-- **Strict 1-to-1 Matching**: One payment $\leftrightarrow$ One settlement $\leftrightarrow$ One bank credit.
+- **Strict 1-to-1 Matching**: One payment $\longleftrightarrow$ One settlement $\longleftrightarrow$ One bank credit.
 - **Decoupled Evaluation**: Ground truth evaluation ledger is strictly separated from engine matching logic.
+- **Reproducible Synthetic Benchmark**: Byte-reproducible benchmark generation and evaluation suite to test engines against scaled distributions without label leakage.
 - **Offline & Self-Contained**: No external APIs, databases, or cloud dependencies.
 
 ---
@@ -57,24 +45,34 @@ ReconcileX/
 │       ├── improved_matcher.py      # Improved deterministic financial validator (V1.1)
 │       ├── evaluator.py             # Ground-truth comparison and metrics engine
 │       ├── main.py                  # CLI entry point (baseline / improved / compare)
+│       ├── benchmark/
+│       │   ├── __init__.py
+│       │   ├── scenarios.py         # Scenario types and deterministic allocations
+│       │   ├── generator.py         # Synthetic benchmark dataset generator
+│       │   ├── metrics.py           # Precision, recall, and throughput calculations
+│       │   └── runner.py            # Benchmark execution and reporting CLI
 │       └── tests/
 │           ├── __init__.py
 │           ├── test_loader.py            # Ingestion, parsing, and quarantine tests
 │           ├── test_baseline.py          # Baseline rules and exception tests
-│           └── test_improved_matcher.py  # V1.1 financial validation & timing tests
+│           ├── test_improved_matcher.py  # V1.1 financial validation & timing tests
+│           ├── test_benchmark_generator.py # Generator reproducibility tests
+│           └── test_benchmark_runner.py  # Runner & metrics tests
 ├── data/
-│   ├── input/                       # Input CSVs (payments, settlements, bank credits, refunds)
-│   └── evaluation/                  # Ground truth evaluation ledger
+│   ├── input/                       # Handcrafted input CSVs (payments, settlements, bank credits, refunds)
+│   ├── evaluation/                  # Handcrafted ground truth evaluation ledger
+│   └── benchmark/                   # Synthetic benchmark datasets (dev, heldout, chaos)
 ├── docs/
 │   ├── decision-spec.md             # High-level decision specification
-│   └── improved-engine-rules.md     # V1.1 Rule precedence & financial equations
+│   ├── improved-engine-rules.md     # V1.1 Rule precedence & financial equations
+│   └── benchmark-methodology.md     # Benchmark design and metric definitions
 ├── pytest.ini
 └── README.md
 ```
 
 ---
 
-## Running the Engine
+## Running the Engine & Automated Tests
 
 ### 1. Run Automated Unit Tests
 
@@ -84,7 +82,7 @@ pytest -v backend/app/tests
 
 ### 2. Run Reconciliation CLI
 
-Run in side-by-side comparison mode (default):
+Run in side-by-side comparison mode:
 ```bash
 python -m backend.app.main --engine compare
 ```
@@ -99,6 +97,37 @@ Run baseline engine only:
 python -m backend.app.main --engine baseline
 ```
 
-Optional CLI parameters:
-- `--data-dir`: Custom path to input directory (default: `data/input`)
-- `--truth-file`: Custom path to evaluation file (default: `data/evaluation/truth_ledger.csv`)
+---
+
+## Synthetic Benchmark Suite
+
+The synthetic benchmark allows evaluating the engine against scaled datasets with hidden ground-truth labels.
+
+> [!IMPORTANT]
+> Heldout and benchmark labels must **never** be accessed by matching engines. The engine operates purely on input CSVs.
+
+### 1. Generate Benchmark Datasets
+
+```bash
+# Generate dev split (250 scenarios, standard distribution)
+python -m backend.app.benchmark.generator --split dev --count 250 --seed 20260901
+
+# Generate heldout split (500 scenarios, evaluation distribution)
+python -m backend.app.benchmark.generator --split heldout --count 500 --seed 20260902
+
+# Generate chaos split (100 scenarios, exception-heavy distribution)
+python -m backend.app.benchmark.generator --split chaos --count 100 --seed 20260903
+```
+
+### 2. Run Benchmark Evaluations
+
+```bash
+# Evaluate improved engine on dev split
+python -m backend.app.benchmark.runner --split dev --engine improved
+
+# Compare baseline vs improved engine on heldout split
+python -m backend.app.benchmark.runner --split heldout --engine compare
+
+# Evaluate improved engine on chaos split
+python -m backend.app.benchmark.runner --split chaos --engine improved
+```

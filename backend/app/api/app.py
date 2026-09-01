@@ -1,0 +1,55 @@
+"""FastAPI application factory and middleware configuration."""
+
+from fastapi import FastAPI, Request, status
+from fastapi.responses import JSONResponse
+
+from backend.app.api.routes import audit, batches, exceptions, health
+from backend.app.services.batch_service import BatchAlreadyInProgressError
+from backend.app.services.exception_service import (
+    ExceptionNotFoundError,
+    InvalidStateTransitionError,
+)
+
+
+def create_app() -> FastAPI:
+    """Create and configure the FastAPI application."""
+    application = FastAPI(
+        title="ReconcileX Financial Reconciliation Engine API",
+        description="Deterministic financial reconciliation persistence and immutable audit workflow API.",
+        version="1.1.0",
+        docs_url="/docs",
+        redoc_url="/redoc",
+    )
+
+    # Register API Routers
+    application.include_router(health.router)
+    application.include_router(batches.router)
+    application.include_router(exceptions.router)
+    application.include_router(audit.router)
+
+    # Register Domain Exception Handlers
+    @application.exception_handler(InvalidStateTransitionError)
+    async def invalid_state_transition_handler(request: Request, exc: InvalidStateTransitionError):
+        return JSONResponse(
+            status_code=status.HTTP_409_CONFLICT,
+            content={"detail": str(exc)},
+        )
+
+    @application.exception_handler(BatchAlreadyInProgressError)
+    async def batch_already_in_progress_handler(request: Request, exc: BatchAlreadyInProgressError):
+        return JSONResponse(
+            status_code=status.HTTP_409_CONFLICT,
+            content={"detail": str(exc)},
+        )
+
+    @application.exception_handler(ExceptionNotFoundError)
+    async def exception_not_found_handler(request: Request, exc: ExceptionNotFoundError):
+        return JSONResponse(
+            status_code=status.HTTP_404_NOT_FOUND,
+            content={"detail": str(exc)},
+        )
+
+    return application
+
+
+app = create_app()

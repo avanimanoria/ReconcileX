@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 import psycopg
 from psycopg.types.json import Jsonb
 
@@ -48,6 +48,40 @@ class BatchRepository:
             cur.execute(sql, (batch_id,))
             row = cur.fetchone()
             return dict(row) if row else None
+
+    def list_batches(
+        self,
+        conn: psycopg.Connection,
+        status: Optional[str] = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> Tuple[List[Dict[str, Any]], int]:
+        """List batches with optional status filter, ordered newest first."""
+        clauses = []
+        params: List[Any] = []
+        if status:
+            clauses.append("status = %s")
+            params.append(status)
+
+        where_clause = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+
+        count_sql = f"SELECT COUNT(*) as count FROM reconciliation_batches {where_clause};"
+        with conn.cursor() as cur:
+            cur.execute(count_sql, tuple(params))
+            total = cur.fetchone()["count"]
+
+        query_sql = f"""
+        SELECT * FROM reconciliation_batches
+        {where_clause}
+        ORDER BY created_at DESC
+        LIMIT %s OFFSET %s;
+        """
+        params.extend([limit, offset])
+        with conn.cursor() as cur:
+            cur.execute(query_sql, tuple(params))
+            items = [dict(row) for row in cur.fetchall()]
+
+        return items, total
 
     def update_batch_status(
         self,

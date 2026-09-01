@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 import psycopg
 from psycopg.types.json import Jsonb
 
@@ -150,8 +150,11 @@ class ReconRepository:
         batch_id: str,
         status: Optional[str] = None,
         priority: Optional[str] = None,
-    ) -> List[Dict[str, Any]]:
-        """List exceptions for a batch with optional status/priority filters."""
+        category: Optional[str] = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> Tuple[List[Dict[str, Any]], int]:
+        """List exceptions for a batch with optional filters and pagination."""
         clauses = ["e.batch_id = %s"]
         params: List[Any] = [batch_id]
 
@@ -161,25 +164,69 @@ class ReconRepository:
         if priority:
             clauses.append("e.priority = %s")
             params.append(priority)
+        if category:
+            clauses.append("e.category = %s")
+            params.append(category)
 
-        sql = f"""
+        where_clause = "WHERE " + " AND ".join(clauses)
+
+        count_sql = f"""
+        SELECT COUNT(*) as count
+        FROM exceptions e
+        JOIN reconciliation_results r ON e.reconciliation_result_id = r.id
+        {where_clause};
+        """
+        with conn.cursor() as cur:
+            cur.execute(count_sql, tuple(params))
+            total = cur.fetchone()["count"]
+
+        query_sql = f"""
         SELECT e.*, r.payment_id, r.settlement_id, r.bank_txn_id, r.reason, r.financial_evidence
         FROM exceptions e
         JOIN reconciliation_results r ON e.reconciliation_result_id = r.id
-        WHERE {' AND '.join(clauses)}
-        ORDER BY e.created_at ASC;
+        {where_clause}
+        ORDER BY e.created_at ASC
+        LIMIT %s OFFSET %s;
         """
+        params.extend([limit, offset])
         with conn.cursor() as cur:
-            cur.execute(sql, tuple(params))
-            return [dict(row) for row in cur.fetchall()]
+            cur.execute(query_sql, tuple(params))
+            items = [dict(row) for row in cur.fetchall()]
 
-    def list_results_by_batch(self, conn: psycopg.Connection, batch_id: str) -> List[Dict[str, Any]]:
-        """List all reconciliation results for a batch."""
-        sql = """
-        SELECT * FROM reconciliation_results
-        WHERE batch_id = %s
-        ORDER BY created_at ASC;
-        """
+        return items, total
+
+    def list_results_by_batch(
+        self,
+        conn: psycopg.Connection,
+        batch_id: str,
+        match_status: Optional[str] = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> Tuple[List[Dict[str, Any]], int]:
+        """List reconciliation results for a batch with optional match_status filter and pagination."""
+        clauses = ["batch_id = %s"]
+        params: List[Any] = [batch_id]
+
+        if match_status:
+            clauses.append("match_status = %s")
+            params.append(match_status)
+
+        where_clause = "WHERE " + " AND ".join(clauses)
+
+        count_sql = f"SELECT COUNT(*) as count FROM reconciliation_results {where_clause};"
         with conn.cursor() as cur:
-            cur.execute(sql, (batch_id,))
-            return [dict(row) for row in cur.fetchall()]
+            cur.execute(count_sql, tuple(params))
+            total = cur.fetchone()["count"]
+
+        query_sql = f"""
+        SELECT * FROM reconciliation_results
+        {where_clause}
+        ORDER BY created_at ASC
+        LIMIT %s OFFSET %s;
+        """
+        params.extend([limit, offset])
+        with conn.cursor() as cur:
+            cur.execute(query_sql, tuple(params))
+            items = [dict(row) for row in cur.fetchall()]
+
+        return items, total

@@ -27,9 +27,10 @@ ReconcileX is a modular, deterministic, offline Python financial reconciliation 
 - **Strict Decimal Math**: All calculations use Python's `decimal.Decimal` with a strict `₹0.01` (1 paisa) tolerance. Floating-point numbers are forbidden.
 - **Strict 1-to-1 Matching**: One payment $\longleftrightarrow$ One settlement $\longleftrightarrow$ One bank credit.
 - **Decoupled Evaluation**: Ground truth evaluation ledger is strictly separated from engine matching logic.
+- **PostgreSQL Persistence & Append-Only Audit**: Full relational persistence using raw `psycopg` (v3) with database triggers preventing `UPDATE` and `DELETE` on `audit_events`.
 - **Reproducible Synthetic Benchmark**: Byte-reproducible benchmark generation and evaluation suite to test engines against scaled distributions without label leakage.
 - **Adversarial Precedence Hardening**: Explicit multi-fault test matrix proving safe refusal and deterministic precedence.
-- **Offline & Self-Contained**: No external APIs, databases, or cloud dependencies.
+- **Offline & Self-Contained**: Core matching engine operates 100% offline with zero external dependencies.
 
 ---
 
@@ -52,14 +53,33 @@ ReconcileX/
 │       │   ├── generator.py         # Synthetic benchmark dataset generator
 │       │   ├── metrics.py           # Precision, recall, and throughput calculations
 │       │   └── runner.py            # Benchmark execution and reporting CLI
+│       ├── db/
+│       │   ├── __init__.py
+│       │   ├── connection.py        # psycopg connection pool & transaction helper
+│       │   ├── schema.sql           # PostgreSQL DDL with triggers & constraints
+│       │   ├── migrations.py        # Schema initializer CLI
+│       │   └── repositories/
+│       │       ├── __init__.py
+│       │       ├── batch_repo.py    # Batch metadata and entity persistence
+│       │       ├── recon_repo.py    # Results and exception persistence
+│       │       └── audit_repo.py    # Append-only audit repository (no update/delete)
+│       ├── services/
+│       │   ├── __init__.py
+│       │   ├── batch_service.py     # Idempotent batch ingestion & matching orchestration
+│       │   └── exception_service.py # Exception lifecycle transitions & assignments
 │       └── tests/
 │           ├── __init__.py
+│           ├── conftest.py               # Database test fixtures & skip guards
 │           ├── test_loader.py            # Ingestion, parsing, and quarantine tests
 │           ├── test_baseline.py          # Baseline rules and exception tests
 │           ├── test_improved_matcher.py  # V1.1 financial validation & timing tests
 │           ├── test_adversarial_precedence.py # 12 multi-fault combination tests
 │           ├── test_benchmark_generator.py # Generator reproducibility tests
-│           └── test_benchmark_runner.py  # Runner & metrics tests
+│           ├── test_benchmark_runner.py  # Runner & metrics tests
+│           ├── test_db_schema.py         # PostgreSQL schema & constraint tests
+│           ├── test_batch_service.py     # End-to-end persistence & idempotency tests
+│           ├── test_exception_workflow.py # Exception state machine tests
+│           └── test_immutable_audit.py   # DB trigger immutability & audit tests
 ├── data/
 │   ├── input/                       # Handcrafted input CSVs (payments, settlements, bank credits, refunds)
 │   ├── evaluation/                  # Handcrafted ground truth evaluation ledger
@@ -68,7 +88,9 @@ ReconcileX/
 │   ├── decision-spec.md             # High-level decision specification
 │   ├── improved-engine-rules.md     # V1.1 Rule precedence & financial equations
 │   ├── benchmark-methodology.md     # Benchmark design and metric definitions
-│   └── adversarial-test-matrix.md   # 12-case multi-fault precedence matrix
+│   ├── adversarial-test-matrix.md   # 12-case multi-fault precedence matrix
+│   └── database-architecture.md     # PostgreSQL persistence and audit architecture
+├── .env.example
 ├── pytest.ini
 └── README.md
 ```
@@ -84,10 +106,8 @@ Run all unit, benchmark, and adversarial precedence tests:
 pytest -v backend/app/tests
 ```
 
-Run only the adversarial precedence test suite:
-```bash
-pytest -v backend/app/tests/test_adversarial_precedence.py
-```
+> [!NOTE]
+> When `DATABASE_URL_TEST` is not configured, database integration tests are cleanly marked as **SKIPPED**. All 49 core unit, benchmark, and adversarial tests run completely offline.
 
 ### 2. Run Reconciliation CLI
 
@@ -108,6 +128,45 @@ python -m backend.app.main --engine baseline
 
 ---
 
+## PostgreSQL Persistence & Audit Setup
+
+### 1. Local Database Creation (Windows / PowerShell)
+
+```powershell
+psql -U postgres -c "CREATE DATABASE reconcilex;"
+psql -U postgres -c "CREATE DATABASE reconcilex_test;"
+```
+
+### 2. Local Environment Configuration
+
+Copy `.env.example` to `.env`:
+```powershell
+Copy-Item .env.example .env
+```
+Ensure your `.env` contains:
+```text
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/reconcilex
+DATABASE_URL_TEST=postgresql://postgres:postgres@localhost:5432/reconcilex_test
+```
+
+### 3. Initialize Database Schema
+
+```powershell
+# Initialize application database
+python -m backend.app.db.migrations
+
+# Initialize test database
+python -m backend.app.db.migrations --test-db
+```
+
+### 4. Run Database Integration Tests
+
+```powershell
+pytest -v backend/app/tests/test_db_schema.py backend/app/tests/test_batch_service.py backend/app/tests/test_exception_workflow.py backend/app/tests/test_immutable_audit.py
+```
+
+---
+
 ## Adversarial Safety Testing
 
 ReconcileX includes a 12-case adversarial test suite ([`docs/adversarial-test-matrix.md`](file:///c:/Users/avani%20manoria/OneDrive/Desktop/ReconcileX/docs/adversarial-test-matrix.md)) that subjects the engine to simultaneous multi-fault anomalies (e.g. data corruption combined with status conflicts, or missing payment IDs combined with amount variances).
@@ -120,11 +179,6 @@ Key safety guarantees:
 ---
 
 ## Synthetic Benchmark Suite
-
-The synthetic benchmark allows evaluating the engine against scaled datasets with hidden ground-truth labels.
-
-> [!IMPORTANT]
-> Heldout and benchmark labels must **never** be accessed by matching engines. The engine operates purely on input CSVs.
 
 ### 1. Generate Benchmark Datasets
 

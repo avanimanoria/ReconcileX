@@ -50,14 +50,20 @@ class ImprovedMatcher:
 
         # Index quarantined bank records referencing a settlement_id
         quarantined_bank_by_settlement: Dict[str, InvalidRowRecord] = {}
+        unreferenced_quarantined_banks: List[InvalidRowRecord] = []
         for q in quarantined_rows:
+            ref_found = False
             if q.reference:
                 quarantined_bank_by_settlement[q.reference] = q
+                ref_found = True
             else:
                 narration = q.raw_data.get("narration", "")
                 for s in dataset.settlements:
                     if s.settlement_id in narration:
                         quarantined_bank_by_settlement[s.settlement_id] = q
+                        ref_found = True
+            if not ref_found and q.source_file == "bank_credits.csv":
+                unreferenced_quarantined_banks.append(q)
 
         matched_payment_ids: Set[str] = set()
         matched_settlement_ids: Set[str] = set()
@@ -69,6 +75,10 @@ class ImprovedMatcher:
 
             # Rule 1: Check if linked quarantined/invalid row exists for this settlement
             quarantined_bank = quarantined_bank_by_settlement.get(settlement_id)
+            if not quarantined_bank and unreferenced_quarantined_banks:
+                matching_valid = [b for b in dataset.bank_credits if settlement_id in b.narration]
+                if not matching_valid:
+                    quarantined_bank = unreferenced_quarantined_banks[0]
             if quarantined_bank:
                 results.append(
                     ReconcileResult(

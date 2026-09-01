@@ -5,3 +5,7 @@ __pycache__/
 venv/
 .env
 .env.*
+# Python cache artifacts
+__pycache__/
+*.py[cod]
+.pytest_cache/

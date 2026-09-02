@@ -1,6 +1,7 @@
 """FastAPI application factory and middleware configuration."""
 
 from fastapi import FastAPI, Request, status
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from backend.app.api.routes import audit, batches, exceptions, health
@@ -19,6 +20,15 @@ def create_app() -> FastAPI:
         version="1.1.0",
         docs_url="/docs",
         redoc_url="/redoc",
+    )
+
+    # In production, configure allowed origins via environment or deployment configuration
+    application.add_middleware(
+        CORSMiddleware,
+        allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+        allow_credentials=False,
+        allow_methods=["GET", "POST", "PATCH"],
+        allow_headers=["Content-Type"],
     )
 
     # Register API Routers

@@ -123,3 +123,14 @@ python -m backend.app.db.migrations --test-db
 # Run all tests (including database integration tests when DATABASE_URL_TEST is set)
 pytest -v backend/app/tests
 ```
+
+---
+
+## 6. Runtime Isolation vs Test Suite
+
+- **Runtime / API / Dashboard**: The FastAPI application and Uvicorn runtime server strictly target `DATABASE_URL`. The runtime never connects to or falls back to `DATABASE_URL_TEST`. At startup, the server logs the selected database name safely without credentials:
+  ```text
+  Database target selected: reconcilex
+  ```
+- **Automated Tests (Pytest)**: Pytest fixtures and database test suites connect exclusively to `DATABASE_URL_TEST` (via `is_test=True`), ensuring total isolation and zero mutation of operational/runtime data in `reconcilex`.
+

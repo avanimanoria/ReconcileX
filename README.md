@@ -165,6 +165,11 @@ python -m backend.app.db.migrations --test-db
 pytest -v backend/app/tests/test_db_schema.py backend/app/tests/test_batch_service.py backend/app/tests/test_exception_workflow.py backend/app/tests/test_immutable_audit.py
 ```
 
+### 5. Runtime Database vs Test Database Isolation
+
+- **Runtime (Uvicorn / FastAPI / Operator Dashboard)**: Uses `DATABASE_URL` exclusively. The runtime server logs `Database target selected: reconcilex` on startup and never connects to or falls back to `DATABASE_URL_TEST`.
+- **Automated Tests (Pytest)**: Uses `DATABASE_URL_TEST` exclusively via pytest fixtures, protecting operational data from test mutations.
+
 ---
 
 ## Adversarial Safety Testing

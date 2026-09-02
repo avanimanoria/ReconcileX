@@ -1,15 +1,28 @@
 """FastAPI application factory and middleware configuration."""
 
+from contextlib import asynccontextmanager
+import logging
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from backend.app.api.routes import audit, batches, exceptions, health
+from backend.app.db.connection import get_safe_database_name
 from backend.app.services.batch_service import BatchAlreadyInProgressError
 from backend.app.services.exception_service import (
     ExceptionNotFoundError,
     InvalidStateTransitionError,
 )
+
+logger = logging.getLogger("uvicorn.error")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Application startup and shutdown lifespan context."""
+    db_name = get_safe_database_name()
+    logger.info("Database target selected: %s", db_name)
+    yield
 
 
 def create_app() -> FastAPI:
@@ -20,6 +33,7 @@ def create_app() -> FastAPI:
         version="1.1.0",
         docs_url="/docs",
         redoc_url="/redoc",
+        lifespan=lifespan,
     )
 
     # In production, configure allowed origins via environment or deployment configuration

@@ -226,3 +226,94 @@ def test_get_batch_exceptions_filtering(api_client, fixture_files):
     assert res_delay.json()["total"] == 1
     assert res_delay.json()["items"][0]["category"] == "SETTLEMENT_DELAY"
     assert res_delay.json()["items"][0]["settlement_id"] == "SET-005"
+
+
+def test_post_and_immediate_get_and_list_returns_same_persisted_batch(api_client, fixture_files):
+    """Verify POST /batches, GET /batches/{id}, and GET /batches return the exact same persisted batch."""
+    # 1. POST batch
+    post_res = api_client.post("/batches", files=fixture_files)
+    assert post_res.status_code == 201
+    post_data = post_res.json()
+    batch_id = post_data["id"]
+
+    # 2. Immediately GET batch by ID
+    get_res = api_client.get(f"/batches/{batch_id}")
+    assert get_res.status_code == 200
+    get_data = get_res.json()
+    assert get_data["id"] == batch_id
+    assert get_data["batch_number"] == post_data["batch_number"]
+    assert get_data["status"] == "COMPLETED"
+    assert get_data["total_payments"] == post_data["total_payments"]
+    assert get_data["auto_match_count"] == post_data["auto_match_count"]
+
+    # 3. Immediately list batches and verify batch is returned
+    list_res = api_client.get("/batches?limit=10&offset=0")
+    assert list_res.status_code == 200
+    list_data = list_res.json()
+    assert list_data["total"] >= 1
+    matching_batches = [b for b in list_data["items"] if b["id"] == batch_id]
+    assert len(matching_batches) == 1
+    assert matching_batches[0]["id"] == batch_id
+    assert matching_batches[0]["batch_number"] == post_data["batch_number"]
+
+
+def test_post_batches_durable_commit_verified_by_independent_connection(db_conn, setup_test_database, fixture_files):
+    """Verify real request lifecycle (independent per-request connections) durably commits to PostgreSQL."""
+    test_url = setup_test_database
+
+    def _real_lifecycle_get_db():
+        from backend.app.db.connection import get_connection
+        conn = get_connection(test_url)
+        try:
+            yield conn
+        finally:
+            conn.close()
+
+    app.dependency_overrides[get_db] = _real_lifecycle_get_db
+    try:
+        client = TestClient(app)
+
+        # 1. POST batch through real request lifecycle
+        post_res = client.post("/batches", files=fixture_files)
+        assert post_res.status_code == 201
+        batch_id = post_res.json()["id"]
+
+        # 2. Open a completely independent psycopg connection outside FastAPI/client
+        import psycopg
+        from psycopg.rows import dict_row
+        with psycopg.connect(test_url, row_factory=dict_row) as independent_conn:
+            with independent_conn.cursor() as cur:
+                # Verify batch is committed and visible
+                cur.execute("SELECT * FROM reconciliation_batches WHERE id = %s;", (batch_id,))
+                batch_row = cur.fetchone()
+                assert batch_row is not None
+                assert batch_row["status"] == "COMPLETED"
+                assert batch_row["auto_match_count"] == 8
+                assert batch_row["exception_count"] == 7
+
+                # Verify results are committed and visible
+                cur.execute("SELECT COUNT(*) as count FROM reconciliation_results WHERE batch_id = %s;", (batch_id,))
+                assert cur.fetchone()["count"] == 15
+
+                # Verify exceptions are committed and visible
+                cur.execute("SELECT COUNT(*) as count FROM exceptions WHERE batch_id = %s;", (batch_id,))
+                assert cur.fetchone()["count"] == 7
+
+                # Verify audit events are committed and visible
+                cur.execute("SELECT COUNT(*) as count FROM audit_events WHERE batch_id = %s;", (batch_id,))
+                assert cur.fetchone()["count"] >= 8
+
+        # 3. Subsequent GET /batches/{id} on separate request connection retrieves the committed batch
+        get_res = client.get(f"/batches/{batch_id}")
+        assert get_res.status_code == 200
+        assert get_res.json()["id"] == batch_id
+
+        # 4. Subsequent GET /batches lists the committed batch
+        list_res = client.get("/batches")
+        assert list_res.status_code == 200
+        assert list_res.json()["total"] >= 1
+        assert any(b["id"] == batch_id for b in list_res.json()["items"])
+    finally:
+        app.dependency_overrides.clear()
+
+

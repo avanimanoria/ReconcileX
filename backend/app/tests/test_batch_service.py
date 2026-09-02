@@ -252,3 +252,58 @@ def test_failed_batch_is_preserved_and_repeat_is_not_reprocessed(db_conn, tmp_pa
             (batch_id,),
         )
         assert cur.fetchone()["count"] == created_audits_before
+
+
+def test_batch_atomicity_failure_leaves_no_partial_completed_batch(setup_test_database, monkeypatch, tmp_path):
+    """Verify that failure during results/exceptions/audit persistence leaves no partial COMPLETED batch."""
+    test_url = setup_test_database
+    (tmp_path / "payments.csv").write_text(
+        "payment_event_id,payment_id,order_id,captured_amount,status,captured_at\n"
+        "EVT-001,PAY-001,ORD-001,1000,captured,2026-08-25T10:00:00\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "settlements.csv").write_text(
+        "settlement_id,payment_id,gross_amount,fee_amount,gst_on_fee,net_amount,settlement_status,settled_at\n"
+        "SET-001,PAY-001,1000,20,3.6,976.4,settled,2026-08-26T09:00:00\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "bank_credits.csv").write_text(
+        "bank_txn_id,credited_amount,credited_at,narration\n"
+        "BNK-001,976.4,2026-08-26T11:00:00,REF:SET-001\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "refunds.csv").write_text(
+        "refund_id,payment_id,refund_amount,refund_status,refunded_at\n",
+        encoding="utf-8",
+    )
+
+    from backend.app.db.connection import get_connection
+    service = BatchService()
+
+    # Inject failure into insert_results_and_exceptions
+    def mock_failing_recon_repo(*args, **kwargs):
+        raise RuntimeError("Simulated unrecoverable DB error during results persistence")
+
+    monkeypatch.setattr(service.recon_repo, "insert_results_and_exceptions", mock_failing_recon_repo)
+
+    with get_connection(test_url) as conn:
+        with pytest.raises(RuntimeError, match="Simulated unrecoverable DB error during results persistence"):
+            service.process_csv_directory(conn=conn, data_dir=tmp_path, batch_number="BATCH-ATOMIC-001")
+
+    # Connect independently and verify database state
+    with get_connection(test_url) as fresh_conn:
+        with fresh_conn.cursor() as cur:
+            # 1. Assert no COMPLETED batch exists
+            cur.execute("SELECT * FROM reconciliation_batches WHERE batch_number = 'BATCH-ATOMIC-001';")
+            batch = cur.fetchone()
+            assert batch is not None
+            assert batch["status"] != "COMPLETED"
+
+            # 2. Assert no partial reconciliation results were committed
+            cur.execute("SELECT COUNT(*) as c FROM reconciliation_results WHERE batch_id = %s;", (str(batch["id"]),))
+            assert cur.fetchone()["c"] == 0
+
+            # 3. Assert no partial exceptions were committed
+            cur.execute("SELECT COUNT(*) as c FROM exceptions WHERE batch_id = %s;", (str(batch["id"]),))
+            assert cur.fetchone()["c"] == 0
+

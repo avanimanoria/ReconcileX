@@ -1,6 +1,5 @@
 """Pytest configuration and database fixtures for ReconcileX."""
 
-import os
 from typing import Generator
 import pytest
 
@@ -34,8 +33,9 @@ def setup_test_database():
 
 @pytest.fixture
 def db_conn(setup_test_database) -> Generator:
-    """Provide a dedicated test connection with automatic cleanup."""
+    """Provide a dedicated test connection with automatic database cleanup."""
     test_url = setup_test_database
+    reset_db(test_url)
     conn = get_connection(test_url)
     try:
         yield conn

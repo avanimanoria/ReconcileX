@@ -1,126 +1,142 @@
-ReconcileX
-Evidence-first reconciliation operations for merchant finance.
+# ReconcileX  
+## Evidence-First AI Finance Controller for Merchant Reconciliation
 
-ReconcileX reconciles captured payments, provider settlements, bank credits, and optional refunds from synthetic CSV batches. It auto-matches only when deterministic financial evidence is complete; otherwise it creates an auditable exception for a human operator.
+> **Reconcile payments, settlements, refunds, and bank credits — safely.**  
+> ReconcileX closes a bounded finance-operations control loop using deterministic financial rules, auditable evidence, human review, and advisory-only AI assistance.
 
-Core principle: deterministic code decides financial truth. AI is advisory-only: it explains verified evidence and extracts candidate references from messy bank narration. It cannot auto-match records, alter money values, change exception state, or perform financial actions.
+---
 
-Why ReconcileX
-Finance-operations teams often reconcile payment-provider records against settlement files and bank credits manually. A safe system must do more than find a happy-path match:
+## The Problem
 
-Verify payment → settlement → bank-credit linkage.
+Merchant finance teams often reconcile four separate sources manually:
 
-Validate net settlement amounts after refunds, fees, and GST.
+1. Captured customer payments.
+2. Payment-provider settlement records.
+3. Actual merchant bank credits.
+4. Refunds that change the expected settlement amount.
 
-Refuse ambiguity rather than guess.
+A record may appear to match by reference but still be financially wrong because of refunds, incorrect fees, GST, duplicate events, timing delays, missing bank references, or conflicting statuses.
 
-Preserve evidence, calculation, rule version, and human outcome.
+A safe finance system should **not guess**.
 
-Measure accuracy, throughput, and unresolved exceptions across a batch.
+ReconcileX answers one question:
 
-ReconcileX implements that loop using synthetic data and a documented V1 policy.
+> **Can this payment, settlement, and bank credit be safely reconciled? If not, what exact evidence-backed exception needs human review?**
 
-What it does
-text
-CSV batch: payments + settlements + bank credits + refunds
+---
+
+## Closed Finance-Ops Loop
+
+```text
+Captured payment
         ↓
-Validation, normalization, quarantine, and idempotent ingestion
+Provider settlement
         ↓
-Deterministic reconciliation and financial validation
+Merchant bank credit
         ↓
-AUTO_MATCH only for complete high-evidence chains
+Deterministic financial validation
         ↓
-Prioritized exception queue for all uncertainty or invalid data
+┌──────────────────────────────────────────────────────────────┐
+│ High-evidence chain                                           │
+│ → AUTO_MATCH with financial calculation and source evidence   │
+└──────────────────────────────────────────────────────────────┘
+        OR
+┌──────────────────────────────────────────────────────────────┐
+│ Missing, invalid, delayed, ambiguous, or inconsistent data    │
+│ → Prioritized exception case                                  │
+│ → AI advisory explanation / narration extraction              │
+│ → Human review with reason                                    │
+│ → Immutable audit history                                     │
+└──────────────────────────────────────────────────────────────┘
         ↓
-Human review and immutable audit history
-        ↓
-Optional grounded AI assistance for explanation and narration extraction
-In scope
-One synthetic merchant and one currency: INR.
+Batch-level accuracy, throughput, and exception reporting
+```
 
-CSV ingestion for payments, settlements, bank credits, and refunds.
+A finance-operations loop is considered closed when every eligible synthetic record is either:
 
-Strict 1:1 payment → settlement → bank-credit reconciliation in V1.
+- Reconciled as an `AUTO_MATCH` with complete evidence, or
+- Converted into a structured exception with a category, priority, evidence, human workflow state, and immutable audit events.
 
-Refund-aware expected-net validation.
+> ReconcileX does **not** move money or operate a real bank ledger. It closes the reconciliation and financial-controls workflow for synthetic merchant-finance data.
 
-Synthetic fee model: 2% processing fee and 18% GST on the fee, or source-supplied settlement fee/GST evidence where present.
+---
 
-₹0.01 tolerance for money comparisons.
+## Why ReconcileX
 
-Settlement timing window of 0–7 calendar days after capture.
+Most demo projects show one perfect match. ReconcileX is built to prove what happens when financial data is messy.
 
-Row-level invalid-data quarantine.
+| Typical reconciliation demo | ReconcileX |
+|---|---|
+| Matches clean CSV rows | Handles invalid, duplicate, delayed, missing, conflicting, and ambiguous records |
+| Uses an LLM to decide matches | Uses deterministic evidence for financial truth |
+| Shows unmatched records | Creates actionable exception cases with evidence and priority |
+| Reports one vague accuracy number | Reports precision, recall, F1, false auto-matches, exception rates, and throughput |
+| Uses logs | Uses PostgreSQL-enforced append-only audit history |
+| Optimizes automation rate | Refuses unsafe matches and routes them to a human |
 
-Duplicate-event and duplicate-batch protection.
+---
 
-PostgreSQL persistence, human exception workflow, and append-only audit history.
+## Key Capabilities
 
-Synthetic held-out benchmark and adversarial regression tests.
+### Deterministic reconciliation
 
-Advisory-only LLM explanation and narration-reference extraction.
+ReconcileX verifies a strict one-to-one chain:
 
-Explicitly out of scope
-Real bank, Razorpay, Stripe, UPI, or payment-gateway connectivity.
+```text
+Payment → Settlement → Bank Credit
+```
 
-Real customer/merchant financial data.
+Optional refunds are linked to the payment and deducted before validating the settlement amount.
 
-Money movement, refunds, payouts, journal posting, or accounting ERP integration.
+An `AUTO_MATCH` occurs only when all conditions are true:
 
-Multi-currency and FX conversion.
+- Payment status is `captured`.
+- Settlement contains the trusted payment ID.
+- Bank narration/reference contains the settlement ID.
+- Payment, settlement, and bank credit form exactly one eligible chain.
+- Settlement occurs within 0–7 calendar days after payment capture.
+- Refund-aware financial equation is valid within ₹0.01.
+- No linked source row is invalid or duplicate.
 
-OCR/PDF statement ingestion.
+Otherwise, ReconcileX creates an exception. It does not guess.
 
-Grouped or split settlements in V1.
+### Financial validation
 
-Autonomous LLM matching or autonomous financial decisions.
+```text
+expected_net =
+    captured_amount
+    - processed_refunds_before_settlement
+    - settlement_fee_amount
+    - settlement_gst_on_fee
+```
 
-Production authentication, multi-tenancy, compliance certification, or production deployment controls.
+A financial match is valid only when:
 
-Deterministic financial policy
-For a captured payment, the V1 expected net is:
-
-text
-expected_net = captured_amount
-             - processed_refunds_before_settlement
-             - settlement_fee_amount
-             - settlement_gst_on_fee
-A match is financially valid only when, within ₹0.01:
-
-text
+```text
 expected_net = settlement_net_amount = bank_credit_amount
-An AUTO_MATCH requires all of the following:
+```
 
-Payment status is captured.
+within a tolerance of **₹0.01**.
 
-The settlement links to the payment ID.
+All money calculations use Python `Decimal`; floating-point arithmetic is not used for financial matching.
 
-The bank narration/reference links to the settlement ID.
+### Exception workflow
 
-The net-amount equation is valid within ₹0.01.
+| Exception category | Example | Priority |
+|---|---|---:|
+| `INVALID_ROW` | Invalid amount, malformed date, missing required field | CRITICAL |
+| `DUPLICATE_EVENT` | Gateway event submitted twice | LOW |
+| `MISSING_PAYMENT_ID` | Settlement has no payment linkage | MEDIUM |
+| `UNMATCHED` | Referenced payment or settlement does not exist | MEDIUM |
+| `STATUS_CONFLICT` | Failed payment has settlement evidence | HIGH |
+| `MISSING_REFERENCE` | Bank narration cannot link to settlement | MEDIUM |
+| `AMBIGUOUS_CANDIDATES` | Multiple plausible candidate records | HIGH |
+| `SETTLEMENT_DELAY` | Settlement arrives after policy window | MEDIUM |
+| `AMOUNT_VARIANCE` | Net amount differs from settlement or bank credit | HIGH |
 
-Settlement date is 0–7 calendar days after capture.
+Deterministic precedence prevents invalid data from being treated as a financial result:
 
-Exactly one eligible payment, settlement, and bank credit are linked.
-
-Linked source rows are not invalid or duplicate.
-
-Otherwise, the system creates an exception. It does not guess.
-
-Exception handling
-Category	Meaning	Default priority
-INVALID_ROW	Required field, money value, or date is invalid	CRITICAL
-DUPLICATE_EVENT	Source event was previously ingested	LOW
-MISSING_PAYMENT_ID	Settlement lacks payment linkage	MEDIUM
-UNMATCHED	Referenced source record is absent	MEDIUM
-STATUS_CONFLICT	Non-captured payment has settlement evidence	HIGH
-MISSING_REFERENCE	Bank narration does not link to settlement	MEDIUM
-AMBIGUOUS_CANDIDATES	More than one eligible candidate exists	HIGH
-SETTLEMENT_DELAY	Settlement is beyond the 7-day policy window	MEDIUM
-AMOUNT_VARIANCE	Expected net, settlement net, and bank amount do not agree	HIGH
-The deterministic precedence order is explicit so invalid data cannot accidentally become a financial decision:
-
-text
+```text
 INVALID_ROW
 → MISSING_PAYMENT_ID
 → UNMATCHED
@@ -130,293 +146,429 @@ INVALID_ROW
 → SETTLEMENT_DELAY
 → AMOUNT_VARIANCE
 → AUTO_MATCH
-AI safety boundary
-ReconcileX uses an LLM as a read-only analyst copilot, not a financial decision maker.
+```
 
-1. Grounded exception explainer
-For an existing exception, the server retrieves only trusted persisted evidence—source IDs, deterministic calculations, statuses, dates, rule version, and exception details. The LLM can produce a structured explanation, evidence summary, unknowns, and suggested investigation step.
+### Human control
 
-The response is schema-validated. It falls back to a deterministic explanation if the model is unconfigured, times out, produces malformed JSON, cites unknown evidence, changes monetary values, or emits unsafe instructions.
+Exception lifecycle is deliberately human-controlled:
 
-2. Advisory bank-narration extractor
-For messy bank narration such as:
+```text
+OPEN → IN_REVIEW → RESOLVED / DISMISSED
+```
 
-text
+- A named actor and reason are required for resolution or dismissal.
+- Reopening returns the case to `IN_REVIEW`.
+- AI cannot resolve, dismiss, assign, reopen, or reprioritize an exception.
+- Every human action produces an immutable audit event.
+
+---
+
+## Advisory AI, Not AI Matching
+
+ReconcileX uses an LLM as an **analyst copilot**, never as a financial decision maker.
+
+```text
+Deterministic system = money truth, matching, exceptions, state
+LLM = explanation, text-reference extraction, advisory context
+Human = approval of uncertain financial decisions
+```
+
+### 1. Grounded exception explainer
+
+For an existing exception, the backend retrieves trusted evidence from PostgreSQL:
+
+- Payment, settlement, refund, and bank-credit IDs.
+- Precomputed deterministic financial calculations.
+- Statuses, dates, exception reason, policy/rule version.
+- Relevant audit context.
+
+The LLM returns a structured advisory explanation:
+
+```text
+What happened
+→ Which trusted evidence supports it
+→ Calculation summary
+→ Unknowns or missing evidence
+→ Suggested investigation step
+```
+
+If the LLM is unavailable, malformed, cites unknown IDs, changes monetary values, or emits unsafe instructions, ReconcileX returns a deterministic fallback explanation.
+
+### 2. Bank-narration reference extractor
+
+Bank narrations are often inconsistent:
+
+```text
 NEFT RAZORPAY SETTLMNT SET-5001 UTR 9812
-The LLM may extract a candidate settlement reference and UTR. The server then performs all validation and candidate ranking deterministically, scoped to the same batch.
+```
 
-A settlement enters the candidate set only when:
+The LLM may extract:
 
-its settlement ID exactly equals the extracted candidate, or
+```json
+{
+  "settlement_id_candidate": "SET-5001",
+  "utr_candidate": "9812",
+  "confidence": 0.96
+}
+```
 
-its complete settlement ID appears literally in the stored bank narration.
+This is **not proof of a match**.
 
-Amount-only similarity never introduces unrelated candidates. Equal top-ranked candidates remain ambiguous and require human review.
+The server then deterministically verifies and ranks candidates within the same batch using:
 
-Non-negotiable AI controls
+- Exact settlement-ID candidate equality.
+- Literal settlement-ID appearance in bank narration.
+- Bank amount versus settlement net amount.
+- Settlement/payment date relationship.
+- Candidate uniqueness and ambiguity.
+
+Amount-only similarity never adds unrelated settlements. Equal top-ranked candidates remain ambiguous.
+
+Every extractor response explicitly states:
+
+```json
+{
+  "advisory_only": true,
+  "financial_match_decision": "NOT_MADE"
+}
+```
+
+---
+
+## AI Safety Guarantees
+
 The LLM cannot:
 
-Create or change an AUTO_MATCH.
+- Create or change an `AUTO_MATCH`.
+- Calculate, overwrite, approve, or change financial amounts.
+- Change fees, GST, refunds, tolerance, or financial policy.
+- Resolve, dismiss, reopen, assign, or reprioritize an exception.
+- Modify payments, settlements, bank credits, refunds, reconciliation results, or source records.
+- Override deterministic rule precedence.
+- Trigger payout, refund, bank, accounting, or external-provider actions.
 
-Calculate, overwrite, or approve money amounts, fees, GST, refunds, or tolerances.
+Every AI request creates an append-only audit event. Financial state remains unchanged.
 
-Resolve, dismiss, reopen, assign, or reprioritize an exception.
+---
 
-Modify payments, settlements, bank credits, refunds, reconciliation results, or source evidence.
+## Architecture
 
-Override deterministic policies or rule precedence.
+```text
+┌─────────────────────────────────────────────────────┐
+│ React Operator Dashboard                             │
+│ Upload -  Results -  Exceptions -  Audit -  Metrics      │
+└──────────────────────┬──────────────────────────────┘
+                       ↓
+┌─────────────────────────────────────────────────────┐
+│ FastAPI API                                          │
+│ Batch -  Exceptions -  AI Advisory -  Metrics           │
+└──────────────────────┬──────────────────────────────┘
+                       ↓
+┌─────────────────────────────────────────────────────┐
+│ Deterministic Reconciliation Engine                  │
+│ Decimal math -  Rule precedence -  Matching -  Evidence │
+└──────────────────────┬──────────────────────────────┘
+                       ↓
+┌─────────────────────────────────────────────────────┐
+│ Advisory AI Boundary                                 │
+│ Grounded explanation -  Narration extraction          │
+│ Schema validation -  Deterministic fallback           │
+└──────────────────────┬──────────────────────────────┘
+                       ↓
+┌─────────────────────────────────────────────────────┐
+│ PostgreSQL                                           │
+│ Raw records -  Normalized data -  Results -  Exceptions │
+│ Append-only audit events                             │
+└─────────────────────────────────────────────────────┘
+```
 
-Trigger money movement or external-provider actions.
+---
 
-Both AI endpoints return advisory output only. The narration endpoint explicitly returns:
+## Tech Stack
 
-json
-{"financial_match_decision": "NOT_MADE"}
-Architecture
-text
-React operator dashboard
-        ↓
-FastAPI API
-        ↓
-Service layer
-        ↓
-Deterministic reconciliation engine + advisory AI adapters
-        ↓
-PostgreSQL: raw records, normalized records, results, exceptions, audit events
-Core components
-Deterministic engine: Python Decimal calculations, matching policy, exception precedence, and high-evidence decisions.
+| Layer | Technology |
+|---|---|
+| Backend | Python, FastAPI |
+| Financial arithmetic | Python `decimal.Decimal` |
+| Database | PostgreSQL, psycopg v3 |
+| Audit protection | PostgreSQL triggers blocking audit `UPDATE` and `DELETE` |
+| Frontend | React 18, Vite, TypeScript |
+| AI | Configurable Gemini-compatible LLM adapter, structured JSON output |
+| Testing | Pytest, Vitest |
+| Data | Fully synthetic CSV datasets and truth ledgers |
 
-Ingestion: CSV validation, canonical normalization, source-row retention, quarantine, and idempotency.
+---
 
-Persistence: PostgreSQL tables for batches, raw source records, payments, settlements, bank credits, refunds, reconciliation results, exceptions, and audit events.
+## Evaluation Results
 
-Auditability: PostgreSQL triggers block UPDATE and DELETE on audit_events.
+### Deterministic reconciliation benchmark
 
-API: FastAPI endpoints for upload, batches, results, exception lifecycle, audit history, AI advisory endpoints, and metrics.
+The improved V1.1 matcher was evaluated on a seeded **held-out synthetic truth ledger** containing 500 reconciliation scenarios.
 
-Dashboard: React/Vite/TypeScript UI for upload, batch monitoring, evidence drill-down, exception review, audit timeline, and evaluation metrics.
+| Metric | Result |
+|---|---:|
+| Total scenarios evaluated | 500 |
+| Exact outcome agreement | 500 / 500 |
+| Auto-match precision | 100.0% |
+| Auto-match recall | 100.0% |
+| Auto-match F1 | 100.0% |
+| Incorrect auto-matches | 0 |
+| Auto-matches emitted | 315 |
+| Exceptions emitted | 185 |
+| Total exception rate | 37.0% |
 
-Key API endpoints
-Endpoint	Purpose
-POST /batches	Upload a four-file synthetic CSV batch
-GET /batches	List persisted batches
-GET /batches/{batch_id}	Retrieve batch status and summary
-GET /batches/{batch_id}/results	Retrieve reconciliation results
-GET /batches/{batch_id}/exceptions	Retrieve the exception queue
-GET /exceptions/{exception_id}	Retrieve exception evidence
-PATCH /exceptions/{exception_id}	Human-only exception lifecycle action with actor/reason
-GET /audit-events	Query immutable audit history
-POST /exceptions/{exception_id}/ai-explanation	Generate a grounded advisory explanation
-POST /exceptions/{exception_id}/ai-narration-candidates	Extract advisory narration references and deterministically rank candidates
-GET /metrics/evaluation-report	Return reproducible deterministic and AI advisory evaluation metrics
-GET /health	Health and database connectivity check
-Evaluation results
-Deterministic reconciliation
-The improved matcher was evaluated against a seeded, held-out synthetic truth ledger containing 500 scenarios under the documented ReconcileX V1 policy.
+Exception rates are calculated against all 500 scenarios:
 
-Metric	Result
-Scenarios evaluated	500
-Exact outcome agreement	500 / 500
-Auto-match precision	100.0%
-Auto-match recall	100.0%
-Auto-match F1	100.0%
-Incorrect auto-matches	0
-Auto-matches emitted	315
-Exceptions emitted	185
-Total exception rate	37.0%
-Exception rates are measured against total scenarios:
+| Exception category | Count | Rate |
+|---|---:|---:|
+| `AMOUNT_VARIANCE` | 40 | 8.0% |
+| `SETTLEMENT_DELAY` | 40 | 8.0% |
+| `MISSING_REFERENCE` | 35 | 7.0% |
+| `MISSING_PAYMENT_ID` | 25 | 5.0% |
+| `STATUS_CONFLICT` | 25 | 5.0% |
+| `INVALID_ROW` | 20 | 4.0% |
 
-Exception category	Count	Rate
-AMOUNT_VARIANCE	40	8.0%
-SETTLEMENT_DELAY	40	8.0%
-MISSING_REFERENCE	35	7.0%
-MISSING_PAYMENT_ID	25	5.0%
-STATUS_CONFLICT	25	5.0%
-INVALID_ROW	20	4.0%
-Interpretation: this is strong regression evidence that the matcher follows the synthetic V1 policy. It is not evidence of production performance on third-party merchant data.
+### AI exception-explanation evaluation
 
-AI exception-explanation evaluation
-A 20-case synthetic evaluation suite tests valid grounded outputs and adversarial failures.
+A 20-case synthetic evaluation suite tests valid grounded outputs and adversarial model failures.
 
-Metric	Result
-Grounded clean pass rate	100.0%
-Adversarial defense catch rate	100.0%
-Unsupported-claim escape rate	0.0% on the fixture set
-Validator fallback trigger rate	50.0%
-This does not prove hallucinations are impossible. It shows that, on the injected test failures, the validation boundary and deterministic fallback behaved as designed.
+| Metric | Result |
+|---|---:|
+| Grounded clean pass rate | 100.0% |
+| Adversarial defense catch rate | 100.0% |
+| Unsupported-claim escape rate | 0.0% on fixture cases |
+| Validator fallback trigger rate | 50.0% |
 
-Advisory narration extraction evaluation
-A separate 30-case synthetic narration corpus measures extraction and deterministic candidate ranking.
+### AI narration extraction evaluation
 
-Metric	Result
-Settlement-ID precision / recall / F1	100.0% / 100.0% / 100.0%
-UTR precision / recall / F1	100.0% / 100.0% / 100.0%
-False extraction count	0
-Candidate ranking Precision@1	100.0%
-Candidate ranking Recall@3	100.0%
-Fallback rate	10.0%
-Unsafe-output blocked rate	100.0% on injected unsafe directives
-Important limitation: the 30-case narration corpus is a small synthetic regression/demo benchmark. It is not a statistically reliable production accuracy estimate, and narration metrics are not financial reconciliation accuracy.
+A separate 30-case synthetic narration corpus evaluates advisory extraction and deterministic candidate ranking.
 
-Human-workflow metrics
-Metric	Status
-Simulated mean time to resolution	Not measured / unavailable
-Auto-resolution rate	Not applicable — human approval is required
-Quick start
-Prerequisites
-Python 3.12+.
+| Metric | Result |
+|---|---:|
+| Settlement-ID precision / recall / F1 | 100.0% / 100.0% / 100.0% |
+| UTR precision / recall / F1 | 100.0% / 100.0% / 100.0% |
+| False extraction count | 0 |
+| Candidate-ranking Precision@1 | 100.0% |
+| Candidate-ranking Recall@3 | 100.0% |
+| Fallback rate | 10.0% |
+| Unsafe-output blocked rate | 100.0% on injected unsafe directives |
 
-PostgreSQL 15+ running locally.
+### Honest evaluation limits
 
-Node.js 18+ and npm.
+These are **synthetic, seeded, held-out regression benchmarks** created for ReconcileX V1 policy validation.
 
-Optional: a Gemini-compatible API key for live advisory demonstrations using synthetic data only.
+They demonstrate that the implementation behaves correctly on the documented benchmark and adversarial fixtures. They do **not** prove:
 
-1. Configure local databases
-Create two local PostgreSQL databases:
+- 100% accuracy on real merchant/payment-provider data.
+- Generalization to arbitrary real bank narration formats.
+- That hallucinations are impossible.
+- Production readiness, financial compliance, or regulatory suitability.
 
-powershell
+The 30-case narration benchmark is suitable for regression/demo evidence, not a statistically reliable production-quality accuracy estimate.
+
+---
+
+## Test Verification
+
+Verified locally with PostgreSQL runtime and test databases configured:
+
+```text
+pytest -q
+114 passed
+```
+
+Additional verification includes:
+
+```text
+Held-out deterministic benchmark: 500 / 500 agreement, 0 false auto-matches
+AI explanation evaluation: 20 synthetic test cases
+Narration extraction evaluation: 30 synthetic test cases
+Frontend tests: Vitest passing
+Frontend production build: passing
+Health endpoint: API and PostgreSQL connected
+```
+
+---
+
+## Quick Start
+
+### Prerequisites
+
+- Python 3.12+
+- PostgreSQL 15+ running locally
+- Node.js 18+ and npm
+- Optional: Gemini-compatible API key for live advisory demonstrations using synthetic data only
+
+### 1. Create local databases
+
+```powershell
 psql -U postgres -c "CREATE DATABASE reconcilex;"
 psql -U postgres -c "CREATE DATABASE reconcilex_test;"
-Copy the environment template:
+```
 
-powershell
+### 2. Configure environment
+
+```powershell
 Copy-Item .env.example .env
-Edit .env with your local password. Do not commit this file:
+```
 
-text
+Edit `.env` with your local PostgreSQL password:
+
+```env
 DATABASE_URL=postgresql://postgres:YOUR_POSTGRES_PASSWORD@localhost:5432/reconcilex
 DATABASE_URL_TEST=postgresql://postgres:YOUR_POSTGRES_PASSWORD@localhost:5432/reconcilex_test
-Optional live LLM configuration:
+```
 
-text
+Optional LLM configuration:
+
+```env
 LLM_PROVIDER=google
 GEMINI_API_KEY=YOUR_GEMINI_API_KEY
 LLM_MODEL=YOUR_SUPPORTED_MODEL_NAME
-Without an LLM key, AI features remain testable through deterministic fallback behavior.
+```
 
-2. Initialize schemas
-powershell
+> Do not commit `.env`. Without an API key, AI endpoints safely use deterministic fallback behavior.
+
+### 3. Initialize schemas
+
+```powershell
 python -m backend.app.db.migrations
 python -m backend.app.db.migrations --test-db
-3. Run the test suite
-powershell
-pytest -q
-The verified repository state includes 114 passing tests when both local databases are configured and reachable.
+```
 
-4. Run benchmarks
-powershell
-# Held-out deterministic matcher evaluation
+### 4. Run all backend tests
+
+```powershell
+pytest -q
+```
+
+### 5. Run evaluations
+
+```powershell
+# Deterministic held-out reconciliation benchmark
 python -m backend.app.benchmark.runner --split heldout
 
-# AI grounded-explanation safety evaluation
+# Grounded exception-explanation safety evaluation
 python -m backend.app.benchmark.ai_eval.eval_runner
 
 # Advisory narration extraction/ranking evaluation
 python -m backend.app.benchmark.ai_eval.narration_eval_runner
-5. Start the backend
-powershell
+```
+
+### 6. Start the API
+
+```powershell
 uvicorn backend.app.api.app:app --reload --host 127.0.0.1 --port 8000
-Check health:
+```
 
-powershell
+Check service health:
+
+```powershell
 Invoke-RestMethod -Uri "http://127.0.0.1:8000/health"
-Open API documentation is available at:
+```
 
-text
+API docs:
+
+```text
 http://127.0.0.1:8000/docs
-6. Start the dashboard
+```
+
+### 7. Start the dashboard
+
 In a second terminal:
 
-powershell
+```powershell
 cd frontend
 npm install
 npm run dev
-Open the local URL printed by Vite, typically:
+```
 
-text
+Open the local URL shown by Vite, commonly:
+
+```text
 http://localhost:5173
-The dashboard includes batch upload, batch results, exception evidence/review, audit timeline, AI advisory panels, and the /metrics evaluation view.
+```
 
-Useful verification commands
-powershell
-# Full backend test suite
-pytest -q
+---
 
-# Frontend tests
-cd frontend
-npm run test
-npm run build
-cd ..
+## API Surface
 
-# Held-out deterministic benchmark
-python -m backend.app.benchmark.runner --split heldout
+| Endpoint | Purpose |
+|---|---|
+| `POST /batches` | Upload synthetic payment, settlement, bank-credit, and refund CSVs |
+| `GET /batches` | List reconciliation batches |
+| `GET /batches/{batch_id}` | View batch status and summary |
+| `GET /batches/{batch_id}/results` | View reconciliation outcomes |
+| `GET /batches/{batch_id}/exceptions` | View prioritized exception queue |
+| `GET /exceptions/{exception_id}` | View evidence for an exception |
+| `PATCH /exceptions/{exception_id}` | Human-only review, resolve, dismiss, or reopen action |
+| `GET /audit-events` | View append-only audit timeline |
+| `POST /exceptions/{exception_id}/ai-explanation` | Generate a grounded AI advisory explanation |
+| `POST /exceptions/{exception_id}/ai-narration-candidates` | Extract narration references and deterministically rank candidates |
+| `GET /metrics/evaluation-report` | View deterministic and AI evaluation metrics |
+| `GET /health` | Verify API and database connectivity |
 
-# API metrics report
-Invoke-RestMethod -Uri "http://127.0.0.1:8000/metrics/evaluation-report" |
-  ConvertTo-Json -Depth 10
+---
 
-# Check working tree before a commit
-git diff --check
-git status
-Repository structure
-text
+## Demo Flow
+
+For a 2–3 minute demo:
+
+1. Upload a synthetic four-file batch.
+2. Show auto-match count, exception count, and batch status.
+3. Open an `AMOUNT_VARIANCE` exception.
+4. Show payment, settlement, bank-credit, refund, and expected-net evidence.
+5. Generate a grounded AI explanation.
+6. Show the advisory-only safety label and deterministic fallback behavior if applicable.
+7. Extract a reference from messy bank narration.
+8. Show deterministic candidate ranking or ambiguity refusal.
+9. Perform a human exception review with an actor and reason.
+10. Open the audit timeline and show immutable history.
+11. Open `/metrics` and show throughput, precision/recall/F1, zero incorrect auto-matches, and exception breakdown.
+
+---
+
+## Project Structure
+
+```text
 ReconcileX/
 ├── backend/
 │   └── app/
-│       ├── ai/                      # Advisory LLM adapters, validators, fallback, extraction
-│       ├── api/                     # FastAPI routes, schemas, dependencies
-│       ├── benchmark/               # Generator, held-out metrics, AI evaluation suites
-│       ├── db/                      # PostgreSQL schema, migrations, repositories
-│       ├── services/                # Batch, exception, and metrics services
-│       ├── baseline.py              # V1.0 comparison matcher
-│       ├── improved_matcher.py      # V1.1 deterministic financial matcher
-│       ├── loader.py                # CSV validation, normalization, quarantine
-│       └── tests/                   # Unit, integration, safety, and workflow tests
+│       ├── ai/                  # Advisory LLM adapters, validators, fallbacks
+│       ├── api/                 # FastAPI routes, schemas, dependencies
+│       ├── benchmark/           # Generator, metrics, AI evaluation suites
+│       ├── db/                  # PostgreSQL schema, migrations, repositories
+│       ├── services/            # Batch, exception, AI, and metrics services
+│       ├── baseline.py          # V1.0 comparison matcher
+│       ├── improved_matcher.py  # V1.1 deterministic financial matcher
+│       ├── loader.py            # CSV validation, normalization, quarantine
+│       └── tests/               # Unit, integration, safety, and workflow tests
 ├── data/
-│   ├── input/                       # Synthetic example CSVs
-│   ├── evaluation/                  # Synthetic truth ledger
-│   └── benchmark/                   # Dev, held-out, and chaos synthetic benchmarks
-├── docs/                            # Decision policy, rules, methodology, database architecture
+│   ├── input/                   # Synthetic example CSV inputs
+│   ├── evaluation/              # Synthetic truth ledger
+│   └── benchmark/               # Dev, held-out, and chaos datasets
+├── docs/                        # Policy, rules, benchmark, and DB documentation
 ├── frontend/
-│   └── src/                         # React operator dashboard
+│   └── src/                     # React operator dashboard
 ├── .env.example
 ├── pytest.ini
 └── README.md
-Demo flow
-A concise demonstration should show:
+```
 
-Upload a synthetic four-file batch.
+---
 
-Show auto-match and exception counts.
+## Future Work
 
-Open an AMOUNT_VARIANCE exception and inspect payment, settlement, bank, refund, and calculation evidence.
+- Independently authored blind test cases and reviewer-labelled datasets.
+- Larger and more diverse bank-narration evaluation corpus.
+- Grouped, split, and partial settlement support.
+- Multi-provider ingestion adapters.
+- Authentication, RBAC, tenancy, and production-grade controls.
+- Real operational studies of analyst resolution time.
+- Production observability, privacy review, retention, and compliance work.
 
-Generate an AI explanation; show that it is advisory-only.
+---
 
-Extract a narration reference; show deterministic candidate ranking or ambiguity refusal.
+## Honest Project Claim
 
-Perform a human review action with actor and reason.
-
-Open the audit timeline and show immutable event history.
-
-Open /metrics and distinguish deterministic reconciliation metrics from AI advisory metrics.
-
-Limitations and future work
-ReconcileX is a well-scoped prototype, not production fintech infrastructure. Future validation and development should include:
-
-Independently authored blind test cases and reviewer-labelled data.
-
-More diverse narration formats and larger evaluation corpora.
-
-Grouped/split settlement models.
-
-Source-specific integration adapters and secure authentication.
-
-Production observability, access controls, privacy review, retention policy, and compliance work.
-
-Human-in-the-loop usability studies measuring actual resolution time.
-
-Honest project claim
-ReconcileX is a deterministic, auditable reconciliation-operations prototype for synthetic merchant-finance data. It reconciles payment, settlement, bank-credit, and refund records; safely refuses uncertain cases; provides a human-review workflow with database-enforced immutable audit history; and measures its results on held-out synthetic benchmarks. Its LLM features are bounded advisory tools, never autonomous financial decision makers.
-
+> ReconcileX is a deterministic, auditable reconciliation-operations prototype for synthetic merchant-finance data. It reconciles payment, settlement, bank-credit, and refund records; refuses uncertain cases rather than guessing; provides human review with PostgreSQL-enforced immutable audit history; and reports held-out synthetic accuracy, throughput, and exception metrics. Its LLM features are bounded advisory tools, never autonomous financial decision makers.

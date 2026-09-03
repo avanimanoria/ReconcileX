@@ -6,7 +6,7 @@ from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from backend.app.api.routes import audit, batches, exceptions, health
+from backend.app.api.routes import audit, batches, exceptions, health, metrics
 from backend.app.db.connection import get_safe_database_name
 from backend.app.services.batch_service import BatchAlreadyInProgressError
 from backend.app.services.exception_service import (
@@ -50,6 +50,8 @@ def create_app() -> FastAPI:
     application.include_router(batches.router)
     application.include_router(exceptions.router)
     application.include_router(audit.router)
+    application.include_router(metrics.router)
+
 
     # Register Domain Exception Handlers
     @application.exception_handler(InvalidStateTransitionError)

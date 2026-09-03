@@ -6,6 +6,7 @@ import { BatchUploadPage } from './pages/BatchUploadPage';
 import { BatchDetailPage } from './pages/BatchDetailPage';
 import { ExceptionDetailPage } from './pages/ExceptionDetailPage';
 import { AuditTimelinePage } from './pages/AuditTimelinePage';
+import { EvaluationMetricsPage } from './pages/EvaluationMetricsPage';
 
 export const App: React.FC = () => {
   return (
@@ -18,10 +19,12 @@ export const App: React.FC = () => {
           <Route path="/batches/:batchId" element={<BatchDetailPage />} />
           <Route path="/exceptions/:exceptionId" element={<ExceptionDetailPage />} />
           <Route path="/audit-events" element={<AuditTimelinePage />} />
+          <Route path="/metrics" element={<EvaluationMetricsPage />} />
         </Routes>
       </Layout>
     </Router>
   );
 };
+
 
 export default App;

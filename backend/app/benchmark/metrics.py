@@ -24,6 +24,13 @@ class ScenarioEvaluationDetail:
     is_unsafe_auto_match: bool
 
 
+def calculate_f1(precision: float, recall: float) -> float:
+    """Calculate harmonic mean F1 with zero-denominator convention (0.0 if precision + recall == 0.0)."""
+    if precision + recall <= 0.0:
+        return 0.0
+    return 2.0 * (precision * recall) / (precision + recall)
+
+
 @dataclass
 class BenchmarkMetrics:
     split: str
@@ -44,15 +51,21 @@ class BenchmarkMetrics:
     accuracy: float = 0.0
     auto_match_precision: float = 0.0
     auto_match_recall: float = 0.0
+    auto_match_f1: float = 0.0
     exception_precision: float = 0.0
     exception_recall: float = 0.0
     unsafe_auto_matches: int = 0
+    total_exception_rate: float = 0.0
+    exception_rates_by_category: Dict[str, float] = field(default_factory=dict)
     exception_breakdown_truth: Dict[str, int] = field(default_factory=dict)
     exception_breakdown_actual: Dict[str, int] = field(default_factory=dict)
     details: List[ScenarioEvaluationDetail] = field(default_factory=list)
     elapsed_seconds: float = 0.0
+    latency_ms: float = 0.0
     scenarios_per_second: float = 0.0
     input_rows_per_second: float = 0.0
+    throughput_records_per_minute: float = 0.0
+
 
 
 def calculate_benchmark_metrics(
@@ -165,15 +178,25 @@ def calculate_benchmark_metrics(
         )
 
     accuracy = (exact_agreement_count / total_scenarios * 100.0) if total_scenarios > 0 else 0.0
-    auto_prec = (correct_auto_matches / actual_auto_matches) if actual_auto_matches > 0 else 0.0
-    auto_rec = (correct_auto_matches / truth_auto_matches) if truth_auto_matches > 0 else 0.0
-    exc_prec = (correct_exceptions / actual_exceptions) if actual_exceptions > 0 else 0.0
-    exc_rec = (correct_exceptions / truth_exceptions) if truth_exceptions > 0 else 0.0
+    auto_prec = (correct_auto_matches / actual_auto_matches) if actual_auto_matches > 0 else 1.0
+    auto_rec = (correct_auto_matches / truth_auto_matches) if truth_auto_matches > 0 else 1.0
+    auto_f1 = calculate_f1(auto_prec, auto_rec)
+    exc_prec = (correct_exceptions / actual_exceptions) if actual_exceptions > 0 else 1.0
+    exc_rec = (correct_exceptions / truth_exceptions) if truth_exceptions > 0 else 1.0
 
     # Total input rows = raw payments + settlements + bank credits + refunds
     total_input_rows = raw_payment_count + len(dataset.settlements) + len(dataset.bank_credits) + len(dataset.refunds)
     scenarios_per_sec = (total_scenarios / elapsed_seconds) if elapsed_seconds > 0 else 0.0
     rows_per_sec = (total_input_rows / elapsed_seconds) if elapsed_seconds > 0 else 0.0
+    latency_ms = elapsed_seconds * 1000.0
+    throughput_rpm = (total_input_rows / (elapsed_seconds / 60.0)) if elapsed_seconds > 0 else 0.0
+
+    # Mandatory Correction 1: category exception rates defined as category_count / total_scenarios
+    total_exc_rate = (actual_exceptions / total_scenarios) if total_scenarios > 0 else 0.0
+    exc_rates_by_cat = {
+        cat: round(count / total_scenarios, 4)
+        for cat, count in actual_exc_breakdown.items()
+    } if total_scenarios > 0 else {}
 
     return BenchmarkMetrics(
         split=split,
@@ -194,13 +217,19 @@ def calculate_benchmark_metrics(
         accuracy=accuracy,
         auto_match_precision=auto_prec,
         auto_match_recall=auto_rec,
+        auto_match_f1=auto_f1,
         exception_precision=exc_prec,
         exception_recall=exc_rec,
         unsafe_auto_matches=unsafe_auto_match_count,
+        total_exception_rate=round(total_exc_rate, 4),
+        exception_rates_by_category=exc_rates_by_cat,
         exception_breakdown_truth=truth_exc_breakdown,
         exception_breakdown_actual=actual_exc_breakdown,
         details=details,
         elapsed_seconds=elapsed_seconds,
-        scenarios_per_second=scenarios_per_sec,
-        input_rows_per_second=rows_per_sec,
+        latency_ms=round(latency_ms, 2),
+        scenarios_per_second=round(scenarios_per_sec, 2),
+        input_rows_per_second=round(rows_per_sec, 2),
+        throughput_records_per_minute=round(throughput_rpm, 2),
     )
+

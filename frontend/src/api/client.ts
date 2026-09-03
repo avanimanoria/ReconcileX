@@ -1,6 +1,10 @@
 import {
+  AIExplanationRequest,
+  AIExplanationResponse,
+  AINarrationCandidatesResponse,
   AuditEventResponse,
   BatchResponse,
+  EvaluationReportResponse,
   ExceptionDetailResponse,
   ExceptionPatchRequest,
   ExceptionResponse,
@@ -8,6 +12,8 @@ import {
   PaginatedResponse,
   ReconcileResultResponse,
 } from './types';
+
+
 
 const BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000').replace(/\/+$/, '');
 
@@ -123,6 +129,19 @@ export const api = {
     });
   },
 
+  async getAiExplanation(
+    exceptionId: string,
+    payload?: AIExplanationRequest
+  ): Promise<AIExplanationResponse> {
+    return request<AIExplanationResponse>(`/exceptions/${exceptionId}/ai-explanation`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload || {}),
+    });
+  },
+
   async listAuditEvents(params: {
     batch_id?: string;
     exception_id?: string;
@@ -142,4 +161,24 @@ export const api = {
     const qs = query.toString();
     return request<PaginatedResponse<AuditEventResponse>>(`/audit-events${qs ? `?${qs}` : ''}`);
   },
+
+  async extractNarrationCandidates(
+    exceptionId: string,
+    payload?: { actor?: string }
+  ): Promise<AINarrationCandidatesResponse> {
+    return request<AINarrationCandidatesResponse>(`/exceptions/${exceptionId}/ai-narration-candidates`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload || {}),
+    });
+  },
+
+  async getEvaluationReport(forceRefresh?: boolean): Promise<EvaluationReportResponse> {
+    const qs = forceRefresh ? '?force_refresh=true' : '';
+    return request<EvaluationReportResponse>(`/metrics/evaluation-report${qs}`);
+  },
 };
+
+

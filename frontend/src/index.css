@@ -313,3 +313,105 @@ textarea:focus {
   font-size: 0.8rem;
   overflow-x: auto;
 }
+
+/* AI Advisory Explainer Styles */
+.ai-panel {
+  border: 1px solid #cbd5e1;
+  border-radius: 0.5rem;
+  background-color: #f8fafc;
+  padding: 1.25rem;
+  margin-top: 1rem;
+}
+
+.ai-advisory-banner {
+  background-color: #fff7ed;
+  border-left: 4px solid #ea580c;
+  color: #9a3412;
+  font-weight: 600;
+  font-size: 0.875rem;
+  padding: 0.65rem 0.85rem;
+  border-radius: 0.25rem;
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.ai-fallback-badge {
+  background-color: #fef3c7;
+  color: #92400e;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  border: 1px solid #fde68a;
+  display: inline-block;
+  margin-bottom: 0.75rem;
+}
+
+.ai-section-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin-top: 1rem;
+  margin-bottom: 0.4rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.ai-calc-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.825rem;
+  margin: 0.5rem 0;
+  background: white;
+  border: 1px solid var(--border-color);
+  border-radius: 0.375rem;
+}
+
+.ai-calc-table td {
+  padding: 0.4rem 0.75rem;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.ai-calc-table td.key {
+  font-weight: 600;
+  color: #475569;
+  width: 45%;
+}
+
+.ai-evidence-item {
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.375rem;
+  padding: 0.5rem 0.75rem;
+  margin-bottom: 0.5rem;
+  font-size: 0.85rem;
+}
+
+.ai-evidence-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.25rem;
+}
+
+.ai-unknown-list {
+  margin: 0.4rem 0 0 1.25rem;
+  padding: 0;
+  font-size: 0.85rem;
+  color: #475569;
+}
+
+.ai-meta-footer {
+  margin-top: 1.25rem;
+  padding-top: 0.75rem;
+  border-top: 1px dashed #cbd5e1;
+  font-size: 0.75rem;
+  color: #64748b;
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+

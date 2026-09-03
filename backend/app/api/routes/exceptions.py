@@ -4,13 +4,33 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status
 import psycopg
 
-from backend.app.api.deps import get_db, get_exception_service
+from typing import Optional
+from backend.app.ai.narration_extractor import (
+    AINarrationCandidatesResponse,
+    AdvisoryNarrationService,
+)
+from backend.app.ai.schemas import AIExplanationRequest, AIExplanationResponse
+from backend.app.ai.service import GroundedExceptionExplainerService
+from backend.app.api.deps import (
+    get_advisory_narration_service,
+    get_ai_explainer_service,
+    get_db,
+    get_exception_service,
+)
 from backend.app.api.schemas import ExceptionDetailResponse, ExceptionPatchRequest
+from pydantic import BaseModel, ConfigDict
 from backend.app.services.exception_service import (
     ExceptionNotFoundError,
     ExceptionService,
     InvalidStateTransitionError,
 )
+
+
+class NarrationCandidatesRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    actor: Optional[str] = None
+
+
 
 router = APIRouter(prefix="/exceptions", tags=["Exceptions"])
 
@@ -72,3 +92,55 @@ def update_exception(
     # Fetch final updated state
     updated_exc = exc_service.get_exception(db, exc_id_str)
     return ExceptionDetailResponse.model_validate(updated_exc)
+
+
+@router.post(
+    "/{exception_id}/ai-explanation",
+    response_model=AIExplanationResponse,
+    status_code=status.HTTP_200_OK,
+)
+def generate_ai_explanation(
+    exception_id: UUID,
+    request: Optional[AIExplanationRequest] = None,
+    db: psycopg.Connection = Depends(get_db),
+    ai_service: GroundedExceptionExplainerService = Depends(get_ai_explainer_service),
+) -> AIExplanationResponse:
+    """Generate a grounded, read-only AI advisory explanation for an existing exception."""
+    actor = request.actor if request else None
+    try:
+        explanation = ai_service.explain_exception(
+            conn=db,
+            exception_id=str(exception_id),
+            actor=actor,
+        )
+    except ExceptionNotFoundError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+
+    return explanation
+
+
+@router.post(
+    "/{exception_id}/ai-narration-candidates",
+    response_model=AINarrationCandidatesResponse,
+    status_code=status.HTTP_200_OK,
+)
+def extract_narration_candidates(
+    exception_id: UUID,
+    request: Optional[NarrationCandidatesRequest] = None,
+    db: psycopg.Connection = Depends(get_db),
+    narration_service: AdvisoryNarrationService = Depends(get_advisory_narration_service),
+) -> AINarrationCandidatesResponse:
+    """Advisory bank narration reference extraction and deterministic candidate ranking."""
+    actor = request.actor if request else None
+    try:
+        candidates = narration_service.extract_and_rank_candidates(
+            conn=db,
+            exception_id=str(exception_id),
+            actor=actor,
+        )
+    except ExceptionNotFoundError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+
+    return candidates
+
+

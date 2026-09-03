@@ -24,7 +24,11 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
           <NavLink to="/audit-events" className={({ isActive }) => (isActive ? 'active' : '')}>
             Audit Timeline
           </NavLink>
+          <NavLink to="/metrics" className={({ isActive }) => (isActive ? 'active' : '')}>
+            Evaluation Metrics
+          </NavLink>
         </nav>
+
       </header>
       <main className="container">{children}</main>
     </div>

@@ -99,3 +99,148 @@ export interface ApiErrorDetail {
   batch?: BatchResponse;
   [key: string]: any;
 }
+
+export interface EvidenceItem {
+  source_type: string;
+  source_id: string;
+  claim: string;
+}
+
+export interface CalculationSummary {
+  captured_amount?: string | null;
+  refund_amount?: string | null;
+  fee_amount?: string | null;
+  gst_amount?: string | null;
+  expected_net?: string | null;
+  settlement_net_amount?: string | null;
+  bank_credit_amount?: string | null;
+  variance_amount?: string | null;
+  currency: string;
+}
+
+export interface ModelMetadata {
+  provider: string;
+  model_id: string;
+  model_version: string;
+  prompt_version: string;
+}
+
+export interface ValidationMetadata {
+  schema_valid: boolean;
+  evidence_ids_valid: boolean;
+  grounding_valid: boolean;
+  fallback_used: boolean;
+  fallback_reason?: string | null;
+}
+
+export interface AIExplanationResponse {
+  exception_id: string;
+  status: string;
+  advisory_only: boolean;
+  model: ModelMetadata;
+  summary: string;
+  evidence: EvidenceItem[];
+  calculation_summary: CalculationSummary;
+  suggested_next_step: string;
+  unknowns: string[];
+  confidence: number;
+  validation: ValidationMetadata;
+}
+
+export interface AIExplanationRequest {
+  actor?: string;
+}
+
+export interface NarrationCandidateEvidence {
+  extracted_reference_equals_settlement_id: boolean;
+  amount_relation: string;
+  date_relation: string;
+  uniqueness: string;
+}
+
+export interface RankedCandidate {
+  rank: number;
+  settlement_id: string;
+  payment_id?: string | null;
+  deterministic_eligibility: string;
+  evidence: NarrationCandidateEvidence;
+  reasons: string[];
+}
+
+export interface NarrationExtractionResult {
+  settlement_id_candidate?: string | null;
+  utr_candidate?: string | null;
+  confidence: number;
+  unknowns: string[];
+}
+
+export interface ExtractionValidationMetadata {
+  schema_valid: boolean;
+  candidate_reference_valid: boolean;
+  fallback_used: boolean;
+  fallback_reason?: string | null;
+}
+
+export interface AINarrationCandidatesResponse {
+  exception_id: string;
+  advisory_only: boolean;
+  financial_match_decision: string;
+  extraction: NarrationExtractionResult;
+  validation: ExtractionValidationMetadata;
+  ranked_candidates: RankedCandidate[];
+  safe_next_step: string;
+}
+
+export interface DeterministicReconciliationMetrics {
+  dataset_name: string;
+  sample_size: number;
+  generator_version: string;
+  seed?: number | null;
+  auto_match_precision: number;
+  auto_match_recall: number;
+  auto_match_f1: number;
+  incorrect_auto_match_count: number;
+  total_scenarios_evaluated: number;
+  auto_matches_emitted: number;
+  exceptions_emitted: number;
+  total_exception_rate: number;
+  exception_rates_by_category: Record<string, number>;
+  exception_breakdown_actual: Record<string, number>;
+  latency_ms: number;
+  throughput_records_per_minute: number;
+  definitions: Record<string, string>;
+  disclaimer: string;
+}
+
+export interface AIAdvisoryExtractionMetrics {
+  dataset_name: string;
+  sample_size: number;
+  generator_version: string;
+  settlement_id_precision: number;
+  settlement_id_recall: number;
+  settlement_id_f1: number;
+  utr_precision: number;
+  utr_recall: number;
+  utr_f1: number;
+  false_extraction_count: number;
+  candidate_ranking_precision_at_1: number;
+  candidate_ranking_recall_at_3: number;
+  malformed_output_fallback_rate: number;
+  unsafe_output_blocked_rate: number;
+  disclaimer: string;
+}
+
+export interface HumanWorkflowMetrics {
+  simulated_mean_time_to_resolution: string;
+  auto_resolution_rate: string;
+  disclaimer: string;
+}
+
+export interface EvaluationReportResponse {
+  generated_at: string;
+  deterministic_reconciliation: DeterministicReconciliationMetrics;
+  ai_advisory_extraction: AIAdvisoryExtractionMetrics;
+  human_workflow: HumanWorkflowMetrics;
+}
+
+

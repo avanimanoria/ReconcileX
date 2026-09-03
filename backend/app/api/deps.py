@@ -46,3 +46,26 @@ def get_exception_service(
     audit_repo: AuditRepository = Depends(get_audit_repo),
 ) -> ExceptionService:
     return ExceptionService(recon_repo=recon_repo, audit_repo=audit_repo)
+
+
+def get_ai_explainer_service(
+    recon_repo: ReconRepository = Depends(get_recon_repo),
+    audit_repo: AuditRepository = Depends(get_audit_repo),
+) -> "GroundedExceptionExplainerService":
+    from backend.app.ai.service import GroundedExceptionExplainerService
+    return GroundedExceptionExplainerService(recon_repo=recon_repo, audit_repo=audit_repo)
+
+
+def get_advisory_narration_service(
+    recon_repo: ReconRepository = Depends(get_recon_repo),
+    audit_repo: AuditRepository = Depends(get_audit_repo),
+) -> "AdvisoryNarrationService":
+    from backend.app.ai.narration_extractor import AdvisoryNarrationService
+    return AdvisoryNarrationService(recon_repo=recon_repo, audit_repo=audit_repo)
+
+
+def get_metrics_service() -> "MetricsService":
+    from backend.app.services.metrics_service import MetricsService
+    return MetricsService()
+
+

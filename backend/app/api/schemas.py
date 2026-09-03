@@ -142,3 +142,15 @@ class AuditEventResponse(BaseModel):
     reason: str
     metadata: Dict[str, Any] = Field(default_factory=dict)
     created_at: datetime
+
+
+# Re-export AI explainer schemas for clean unified access
+from backend.app.ai.schemas import (
+    AIExplanationRequest,
+    AIExplanationResponse,
+    CalculationSummary,
+    EvidenceItem,
+    ModelMetadata,
+    ValidationMetadata,
+)
+

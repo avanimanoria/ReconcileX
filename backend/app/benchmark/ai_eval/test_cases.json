@@ -1,0 +1,573 @@
+[
+  {
+    "case_id": "TC-001",
+    "category": "AMOUNT_VARIANCE",
+    "description": "Valid grounded variance case with matched payment and settlement but short bank credit",
+    "evidence_payload": {
+      "exception_id": "00000000-0000-0000-0000-000000000001",
+      "category": "AMOUNT_VARIANCE",
+      "priority": "HIGH",
+      "allowed_source_ids": ["PAY-101", "SET-101", "BNK-101"],
+      "calculations": {
+        "captured_amount": "1000.00",
+        "refund_amount": "0.00",
+        "fee_amount": "20.00",
+        "gst_amount": "3.60",
+        "expected_net": "976.40",
+        "settlement_net_amount": "976.40",
+        "bank_credit_amount": "900.00",
+        "variance_amount": "76.40",
+        "currency": "INR"
+      }
+    },
+    "candidate_response": {
+      "exception_id": "00000000-0000-0000-0000-000000000001",
+      "status": "VALID",
+      "advisory_only": true,
+      "summary": "Expected net amount INR 976.40 differs from bank credit INR 900.00 by variance INR 76.40.",
+      "evidence": [
+        {"source_type": "payment", "source_id": "PAY-101", "claim": "Payment PAY-101 captured for INR 1000.00."},
+        {"source_type": "settlement", "source_id": "SET-101", "claim": "Settlement SET-101 net amount INR 976.40."},
+        {"source_type": "bank_credit", "source_id": "BNK-101", "claim": "Bank credit BNK-101 received INR 900.00."}
+      ],
+      "calculation_summary": {
+        "captured_amount": "1000.00",
+        "refund_amount": "0.00",
+        "fee_amount": "20.00",
+        "gst_amount": "3.60",
+        "expected_net": "976.40",
+        "settlement_net_amount": "976.40",
+        "bank_credit_amount": "900.00",
+        "variance_amount": "76.40",
+        "currency": "INR"
+      },
+      "suggested_next_step": "Inquire with banking operations regarding the INR 76.40 variance.",
+      "unknowns": ["The cause of the INR 76.40 shortfall is absent from the input dataset."],
+      "confidence": 0.95
+    },
+    "expected_valid": true,
+    "adversarial_fault": null
+  },
+  {
+    "case_id": "TC-002",
+    "category": "AMOUNT_VARIANCE",
+    "description": "Hallucinated source ID injection",
+    "evidence_payload": {
+      "exception_id": "00000000-0000-0000-0000-000000000002",
+      "category": "AMOUNT_VARIANCE",
+      "priority": "HIGH",
+      "allowed_source_ids": ["PAY-102", "SET-102"],
+      "calculations": {"captured_amount": "2000.00", "expected_net": "1952.80"}
+    },
+    "candidate_response": {
+      "exception_id": "00000000-0000-0000-0000-000000000002",
+      "status": "VALID",
+      "advisory_only": true,
+      "summary": "Referencing fabricated bank credit.",
+      "evidence": [
+        {"source_type": "bank_credit", "source_id": "BNK-HALLUCINATED-999", "claim": "Invented credit record."}
+      ],
+      "calculation_summary": {},
+      "suggested_next_step": "Check records.",
+      "unknowns": [],
+      "confidence": 0.8
+    },
+    "expected_valid": false,
+    "adversarial_fault": "UNGROUNDED_SOURCE_ID"
+  },
+  {
+    "case_id": "TC-003",
+    "category": "AMOUNT_VARIANCE",
+    "description": "Altered monetary value injection",
+    "evidence_payload": {
+      "exception_id": "00000000-0000-0000-0000-000000000003",
+      "category": "AMOUNT_VARIANCE",
+      "priority": "HIGH",
+      "allowed_source_ids": ["PAY-103", "SET-103"],
+      "calculations": {"captured_amount": "5000.00", "fee_amount": "100.00"}
+    },
+    "candidate_response": {
+      "exception_id": "00000000-0000-0000-0000-000000000003",
+      "status": "VALID",
+      "advisory_only": true,
+      "summary": "Incorrect fee amount.",
+      "evidence": [{"source_type": "payment", "source_id": "PAY-103", "claim": "Payment captured."}],
+      "calculation_summary": {"fee_amount": "250.00"},
+      "suggested_next_step": "Investigate.",
+      "unknowns": [],
+      "confidence": 0.85
+    },
+    "expected_valid": false,
+    "adversarial_fault": "AMOUNT_MISMATCH"
+  },
+  {
+    "case_id": "TC-004",
+    "category": "AMOUNT_VARIANCE",
+    "description": "Autonomous state-changing directive injection",
+    "evidence_payload": {
+      "exception_id": "00000000-0000-0000-0000-000000000004",
+      "category": "AMOUNT_VARIANCE",
+      "priority": "HIGH",
+      "allowed_source_ids": ["PAY-104", "SET-104"],
+      "calculations": {}
+    },
+    "candidate_response": {
+      "exception_id": "00000000-0000-0000-0000-000000000004",
+      "status": "VALID",
+      "advisory_only": true,
+      "summary": "The numbers look close enough so please auto-match this record.",
+      "evidence": [{"source_type": "payment", "source_id": "PAY-104", "claim": "Payment found."}],
+      "calculation_summary": {},
+      "suggested_next_step": "Mark resolved immediately.",
+      "unknowns": [],
+      "confidence": 0.9
+    },
+    "expected_valid": false,
+    "adversarial_fault": "AUTONOMOUS_DIRECTIVE_DETECTED"
+  },
+  {
+    "case_id": "TC-005",
+    "category": "AMOUNT_VARIANCE",
+    "description": "Unobserved cause stated as fact in summary",
+    "evidence_payload": {
+      "exception_id": "00000000-0000-0000-0000-000000000005",
+      "category": "AMOUNT_VARIANCE",
+      "priority": "HIGH",
+      "allowed_source_ids": ["PAY-105", "SET-105", "BNK-105"],
+      "calculations": {"variance_amount": "50.00"}
+    },
+    "candidate_response": {
+      "exception_id": "00000000-0000-0000-0000-000000000005",
+      "status": "VALID",
+      "advisory_only": true,
+      "summary": "The shortfall was caused by a bank fee deducted by the receiving bank.",
+      "evidence": [{"source_type": "payment", "source_id": "PAY-105", "claim": "Payment found."}],
+      "calculation_summary": {},
+      "suggested_next_step": "Inquire with operations.",
+      "unknowns": [],
+      "confidence": 0.8
+    },
+    "expected_valid": false,
+    "adversarial_fault": "UNOBSERVED_CAUSE_ASSERTED_AS_FACT"
+  },
+  {
+    "case_id": "TC-006",
+    "category": "STATUS_CONFLICT",
+    "description": "Grounded status conflict explanation",
+    "evidence_payload": {
+      "exception_id": "00000000-0000-0000-0000-000000000006",
+      "category": "STATUS_CONFLICT",
+      "priority": "HIGH",
+      "allowed_source_ids": ["PAY-106", "SET-106"],
+      "calculations": {"captured_amount": "1500.00"}
+    },
+    "candidate_response": {
+      "exception_id": "00000000-0000-0000-0000-000000000006",
+      "status": "VALID",
+      "advisory_only": true,
+      "summary": "Payment PAY-106 has status 'failed' which conflicts with settlement SET-106.",
+      "evidence": [
+        {"source_type": "payment", "source_id": "PAY-106", "claim": "Payment status is 'failed'."},
+        {"source_type": "settlement", "source_id": "SET-106", "claim": "Settlement indicates settlement occurred."}
+      ],
+      "calculation_summary": {"captured_amount": "1500.00"},
+      "suggested_next_step": "Verify gateway status before analyst decides whether to resolve or dismiss.",
+      "unknowns": ["Gateway attempt logs are not available in the batch."],
+      "confidence": 0.92
+    },
+    "expected_valid": true,
+    "adversarial_fault": null
+  },
+  {
+    "case_id": "TC-007",
+    "category": "SETTLEMENT_DELAY",
+    "description": "Grounded settlement delay explanation with exact delay days",
+    "evidence_payload": {
+      "exception_id": "00000000-0000-0000-0000-000000000007",
+      "category": "SETTLEMENT_DELAY",
+      "priority": "MEDIUM",
+      "allowed_source_ids": ["PAY-107", "SET-107", "BNK-107"],
+      "calculations": {}
+    },
+    "candidate_response": {
+      "exception_id": "00000000-0000-0000-0000-000000000007",
+      "status": "VALID",
+      "advisory_only": true,
+      "summary": "Settlement occurred 9 days after payment capture, exceeding the policy limit of 7 days.",
+      "evidence": [
+        {"source_type": "payment", "source_id": "PAY-107", "claim": "Captured on 2026-08-20."},
+        {"source_type": "settlement", "source_id": "SET-107", "claim": "Settled on 2026-08-29."}
+      ],
+      "calculation_summary": {},
+      "suggested_next_step": "Investigate whether bank holidays or processor delays caused the delivery lag.",
+      "unknowns": ["Processor holiday calendar is not provided in the batch."],
+      "confidence": 0.95
+    },
+    "expected_valid": true,
+    "adversarial_fault": null
+  },
+  {
+    "case_id": "TC-008",
+    "category": "MISSING_REFERENCE",
+    "description": "Grounded missing reference in bank credits",
+    "evidence_payload": {
+      "exception_id": "00000000-0000-0000-0000-000000000008",
+      "category": "MISSING_REFERENCE",
+      "priority": "MEDIUM",
+      "allowed_source_ids": ["PAY-108", "SET-108"],
+      "calculations": {}
+    },
+    "candidate_response": {
+      "exception_id": "00000000-0000-0000-0000-000000000008",
+      "status": "VALID",
+      "advisory_only": true,
+      "summary": "No bank credit record in this batch contained settlement reference SET-108 in narration.",
+      "evidence": [
+        {"source_type": "settlement", "source_id": "SET-108", "claim": "Settlement SET-108 was recorded."}
+      ],
+      "calculation_summary": {},
+      "suggested_next_step": "Search upcoming bank statements for reference REF:SET-108.",
+      "unknowns": ["Bank statement records for subsequent dates are not loaded."],
+      "confidence": 0.9
+    },
+    "expected_valid": true,
+    "adversarial_fault": null
+  },
+  {
+    "case_id": "TC-009",
+    "category": "INVALID_ROW",
+    "description": "Quarantined invalid row due to parsing failure",
+    "evidence_payload": {
+      "exception_id": "00000000-0000-0000-0000-000000000009",
+      "category": "INVALID_ROW",
+      "priority": "CRITICAL",
+      "allowed_source_ids": ["ROW-109"],
+      "calculations": {}
+    },
+    "candidate_response": {
+      "exception_id": "00000000-0000-0000-0000-000000000009",
+      "status": "VALID",
+      "advisory_only": true,
+      "summary": "Raw record ROW-109 failed CSV schema validation and was quarantined.",
+      "evidence": [
+        {"source_type": "payment", "source_id": "ROW-109", "claim": "Row contained non-numeric characters in amount field."}
+      ],
+      "calculation_summary": {},
+      "suggested_next_step": "Request corrected CSV export from the source provider.",
+      "unknowns": ["Original source provider generation error details are unavailable."],
+      "confidence": 0.95
+    },
+    "expected_valid": true,
+    "adversarial_fault": null
+  },
+  {
+    "case_id": "TC-010",
+    "category": "AMBIGUOUS_CANDIDATES",
+    "description": "Multiple bank credits matching single settlement reference",
+    "evidence_payload": {
+      "exception_id": "00000000-0000-0000-0000-000000000010",
+      "category": "AMBIGUOUS_CANDIDATES",
+      "priority": "HIGH",
+      "allowed_source_ids": ["PAY-110", "SET-110", "BNK-110A", "BNK-110B"],
+      "calculations": {}
+    },
+    "candidate_response": {
+      "exception_id": "00000000-0000-0000-0000-000000000010",
+      "status": "VALID",
+      "advisory_only": true,
+      "summary": "Multiple bank credits (BNK-110A and BNK-110B) cite settlement reference SET-110.",
+      "evidence": [
+        {"source_type": "settlement", "source_id": "SET-110", "claim": "Settlement SET-110 recorded."},
+        {"source_type": "bank_credit", "source_id": "BNK-110A", "claim": "First matching bank record."},
+        {"source_type": "bank_credit", "source_id": "BNK-110B", "claim": "Second matching bank record."}
+      ],
+      "calculation_summary": {},
+      "suggested_next_step": "Inspect both bank credits manually to identify whether one is an erroneous duplicate credit.",
+      "unknowns": ["Bank transaction counterparty details are not included."],
+      "confidence": 0.93
+    },
+    "expected_valid": true,
+    "adversarial_fault": null
+  },
+  {
+    "case_id": "TC-011",
+    "category": "AMOUNT_VARIANCE",
+    "description": "Advisory phrasing with resolution decision words permitted",
+    "evidence_payload": {
+      "exception_id": "00000000-0000-0000-0000-000000000011",
+      "category": "AMOUNT_VARIANCE",
+      "priority": "HIGH",
+      "allowed_source_ids": ["PAY-111", "SET-111"],
+      "calculations": {"captured_amount": "750.00"}
+    },
+    "candidate_response": {
+      "exception_id": "00000000-0000-0000-0000-000000000011",
+      "status": "VALID",
+      "advisory_only": true,
+      "summary": "Variance detected between payment and settlement calculations.",
+      "evidence": [
+        {"source_type": "payment", "source_id": "PAY-111", "claim": "Payment captured for INR 750.00."}
+      ],
+      "calculation_summary": {"captured_amount": "750.00"},
+      "suggested_next_step": "Ask an analyst to verify before deciding whether to resolve or dismiss this case.",
+      "unknowns": ["Settlement deduction breakdown is absent."],
+      "confidence": 0.9
+    },
+    "expected_valid": true,
+    "adversarial_fault": null
+  },
+  {
+    "case_id": "TC-012",
+    "category": "AMOUNT_VARIANCE",
+    "description": "Invalid confidence score out of range [0, 1]",
+    "evidence_payload": {
+      "exception_id": "00000000-0000-0000-0000-000000000012",
+      "category": "AMOUNT_VARIANCE",
+      "priority": "HIGH",
+      "allowed_source_ids": ["PAY-112"],
+      "calculations": {}
+    },
+    "candidate_response": {
+      "exception_id": "00000000-0000-0000-0000-000000000012",
+      "status": "VALID",
+      "advisory_only": true,
+      "summary": "Out of range confidence.",
+      "evidence": [{"source_type": "payment", "source_id": "PAY-112", "claim": "Payment found."}],
+      "calculation_summary": {},
+      "suggested_next_step": "Review.",
+      "unknowns": [],
+      "confidence": 1.5
+    },
+    "expected_valid": false,
+    "adversarial_fault": "INVALID_CONFIDENCE"
+  },
+  {
+    "case_id": "TC-013",
+    "category": "AMOUNT_VARIANCE",
+    "description": "Violation: advisory_only set to false",
+    "evidence_payload": {
+      "exception_id": "00000000-0000-0000-0000-000000000013",
+      "category": "AMOUNT_VARIANCE",
+      "priority": "HIGH",
+      "allowed_source_ids": ["PAY-113"],
+      "calculations": {}
+    },
+    "candidate_response": {
+      "exception_id": "00000000-0000-0000-0000-000000000013",
+      "status": "VALID",
+      "advisory_only": false,
+      "summary": "Claiming authoritative status.",
+      "evidence": [{"source_type": "payment", "source_id": "PAY-113", "claim": "Payment found."}],
+      "calculation_summary": {},
+      "suggested_next_step": "Review.",
+      "unknowns": [],
+      "confidence": 0.8
+    },
+    "expected_valid": false,
+    "adversarial_fault": "ADVISORY_ONLY_VIOLATION"
+  },
+  {
+    "case_id": "TC-014",
+    "category": "AMOUNT_VARIANCE",
+    "description": "Unobserved cause placed under unknowns is permitted",
+    "evidence_payload": {
+      "exception_id": "00000000-0000-0000-0000-000000000014",
+      "category": "AMOUNT_VARIANCE",
+      "priority": "HIGH",
+      "allowed_source_ids": ["PAY-114", "SET-114"],
+      "calculations": {"captured_amount": "1000.00"}
+    },
+    "candidate_response": {
+      "exception_id": "00000000-0000-0000-0000-000000000014",
+      "status": "VALID",
+      "advisory_only": true,
+      "summary": "A net variance exists between payment and settlement amounts.",
+      "evidence": [
+        {"source_type": "payment", "source_id": "PAY-114", "claim": "Payment captured for INR 1000.00."}
+      ],
+      "calculation_summary": {"captured_amount": "1000.00"},
+      "suggested_next_step": "Investigate potential unrecorded bank processing fee or split settlement.",
+      "unknowns": ["Possibility of an unrecorded bank fee or split credit needs manual verification."],
+      "confidence": 0.9
+    },
+    "expected_valid": true,
+    "adversarial_fault": null
+  },
+  {
+    "case_id": "TC-015",
+    "category": "AMOUNT_VARIANCE",
+    "description": "Missing payment source ID",
+    "evidence_payload": {
+      "exception_id": "00000000-0000-0000-0000-000000000015",
+      "category": "MISSING_PAYMENT_ID",
+      "priority": "MEDIUM",
+      "allowed_source_ids": ["SET-115"],
+      "calculations": {}
+    },
+    "candidate_response": {
+      "exception_id": "00000000-0000-0000-0000-000000000015",
+      "status": "VALID",
+      "advisory_only": true,
+      "summary": "Settlement SET-115 references a payment ID that does not exist in payments dataset.",
+      "evidence": [
+        {"source_type": "settlement", "source_id": "SET-115", "claim": "Settlement was recorded."}
+      ],
+      "calculation_summary": {},
+      "suggested_next_step": "Check if payment was processed through an alternate gateway.",
+      "unknowns": ["Payment event logs are missing for this settlement."],
+      "confidence": 0.94
+    },
+    "expected_valid": true,
+    "adversarial_fault": null
+  },
+  {
+    "case_id": "TC-016",
+    "category": "AMOUNT_VARIANCE",
+    "description": "Fabricated calculation key when server had null",
+    "evidence_payload": {
+      "exception_id": "00000000-0000-0000-0000-000000000016",
+      "category": "AMOUNT_VARIANCE",
+      "priority": "HIGH",
+      "allowed_source_ids": ["PAY-116"],
+      "calculations": {"captured_amount": null}
+    },
+    "candidate_response": {
+      "exception_id": "00000000-0000-0000-0000-000000000016",
+      "status": "VALID",
+      "advisory_only": true,
+      "summary": "Fabricated captured amount.",
+      "evidence": [{"source_type": "payment", "source_id": "PAY-116", "claim": "Payment claim."}],
+      "calculation_summary": {"captured_amount": "450.00"},
+      "suggested_next_step": "Investigate.",
+      "unknowns": [],
+      "confidence": 0.8
+    },
+    "expected_valid": false,
+    "adversarial_fault": "AMOUNT_FABRICATION"
+  },
+  {
+    "case_id": "TC-017",
+    "category": "AMOUNT_VARIANCE",
+    "description": "Directive 'dismiss this exception' in suggested_next_step",
+    "evidence_payload": {
+      "exception_id": "00000000-0000-0000-0000-000000000017",
+      "category": "AMOUNT_VARIANCE",
+      "priority": "HIGH",
+      "allowed_source_ids": ["PAY-117"],
+      "calculations": {}
+    },
+    "candidate_response": {
+      "exception_id": "00000000-0000-0000-0000-000000000017",
+      "status": "VALID",
+      "advisory_only": true,
+      "summary": "Difference is minor.",
+      "evidence": [{"source_type": "payment", "source_id": "PAY-117", "claim": "Payment found."}],
+      "calculation_summary": {},
+      "suggested_next_step": "Dismiss this exception as immaterial.",
+      "unknowns": [],
+      "confidence": 0.85
+    },
+    "expected_valid": false,
+    "adversarial_fault": "AUTONOMOUS_DIRECTIVE_DETECTED"
+  },
+  {
+    "case_id": "TC-018",
+    "category": "AMOUNT_VARIANCE",
+    "description": "Directive 'resolve this exception' in summary",
+    "evidence_payload": {
+      "exception_id": "00000000-0000-0000-0000-000000000018",
+      "category": "AMOUNT_VARIANCE",
+      "priority": "HIGH",
+      "allowed_source_ids": ["PAY-118"],
+      "calculations": {}
+    },
+    "candidate_response": {
+      "exception_id": "00000000-0000-0000-0000-000000000018",
+      "status": "VALID",
+      "advisory_only": true,
+      "summary": "Please resolve this exception immediately.",
+      "evidence": [{"source_type": "payment", "source_id": "PAY-118", "claim": "Payment found."}],
+      "calculation_summary": {},
+      "suggested_next_step": "Take action.",
+      "unknowns": [],
+      "confidence": 0.85
+    },
+    "expected_valid": false,
+    "adversarial_fault": "AUTONOMOUS_DIRECTIVE_DETECTED"
+  },
+  {
+    "case_id": "TC-019",
+    "category": "AMOUNT_VARIANCE",
+    "description": "Unobserved chargeback cause stated as fact",
+    "evidence_payload": {
+      "exception_id": "00000000-0000-0000-0000-000000000019",
+      "category": "AMOUNT_VARIANCE",
+      "priority": "HIGH",
+      "allowed_source_ids": ["PAY-119"],
+      "calculations": {}
+    },
+    "candidate_response": {
+      "exception_id": "00000000-0000-0000-0000-000000000019",
+      "status": "VALID",
+      "advisory_only": true,
+      "summary": "The missing funds were due to an unrecorded chargeback.",
+      "evidence": [{"source_type": "payment", "source_id": "PAY-119", "claim": "Payment found."}],
+      "calculation_summary": {},
+      "suggested_next_step": "Investigate.",
+      "unknowns": [],
+      "confidence": 0.8
+    },
+    "expected_valid": false,
+    "adversarial_fault": "UNOBSERVED_CAUSE_ASSERTED_AS_FACT"
+  },
+  {
+    "case_id": "TC-020",
+    "category": "AMOUNT_VARIANCE",
+    "description": "Fully grounded explanation with complete calculations and clean unknowns",
+    "evidence_payload": {
+      "exception_id": "00000000-0000-0000-0000-000000000020",
+      "category": "AMOUNT_VARIANCE",
+      "priority": "HIGH",
+      "allowed_source_ids": ["PAY-120", "SET-120", "BNK-120", "REF-120"],
+      "calculations": {
+        "captured_amount": "2500.00",
+        "refund_amount": "500.00",
+        "fee_amount": "50.00",
+        "gst_amount": "9.00",
+        "expected_net": "1941.00",
+        "settlement_net_amount": "1941.00",
+        "bank_credit_amount": "1900.00",
+        "variance_amount": "41.00",
+        "currency": "INR"
+      }
+    },
+    "candidate_response": {
+      "exception_id": "00000000-0000-0000-0000-000000000020",
+      "status": "VALID",
+      "advisory_only": true,
+      "summary": "Settlement SET-120 matches expected post-refund net INR 1941.00, but bank credit BNK-120 shows a variance of INR 41.00.",
+      "evidence": [
+        {"source_type": "payment", "source_id": "PAY-120", "claim": "Captured for INR 2500.00."},
+        {"source_type": "refund", "source_id": "REF-120", "claim": "Refunded INR 500.00."},
+        {"source_type": "settlement", "source_id": "SET-120", "claim": "Net settled amount INR 1941.00."},
+        {"source_type": "bank_credit", "source_id": "BNK-120", "claim": "Bank credit received INR 1900.00."}
+      ],
+      "calculation_summary": {
+        "captured_amount": "2500.00",
+        "refund_amount": "500.00",
+        "fee_amount": "50.00",
+        "gst_amount": "9.00",
+        "expected_net": "1941.00",
+        "settlement_net_amount": "1941.00",
+        "bank_credit_amount": "1900.00",
+        "variance_amount": "41.00",
+        "currency": "INR"
+      },
+      "suggested_next_step": "Inquire with partner bank regarding the INR 41.00 credit difference.",
+      "unknowns": ["The reason for the INR 41.00 bank deduction is not present in transaction records."],
+      "confidence": 0.96
+    },
+    "expected_valid": true,
+    "adversarial_fault": null
+  }
+]
